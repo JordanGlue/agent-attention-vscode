@@ -1,0 +1,36 @@
+{
+  "name": "codex-attention",
+  "displayName": "Codex Attention",
+  "description": "Dramatic, terminal-aware completion alerts for Codex CLI in VS Code.",
+  "version": "0.1.0",
+  "publisher": "jordan",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "extensionKind": [
+    "ui"
+  ],
+  "enabledApiProposals": [
+    "terminalDataWriteEvent"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "codexAttention.showUnread",
+        "title": "Codex Attention: Show Waiting Terminals"
+      },
+      {
+        "command": "codexAttention.clearAll",
+        "title": "Codex Attention: Clear All Alerts"
+      }
+    ]
+  }
+}

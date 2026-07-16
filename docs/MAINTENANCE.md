@@ -1,0 +1,61 @@
+# Codex attention notifications in VS Code
+
+This setup makes a finished Codex CLI turn request attention from the exact VS Code terminal split where Codex is running.
+
+## Normal behaviour
+
+- If the Codex terminal is already focused, no notification is shown.
+- If it is unfocused, VS Code shows a notification with a button that focuses the correct terminal.
+- The correct terminal split gets a pulsing pink/gold border and a `CODEX READY` badge.
+- Focusing that split acknowledges and clears the visual marker.
+- Window reloads preserve terminal processes. The notification bridge discovers the newly restarted extension host instead of relying only on the terminal's now-stale pipe environment variable.
+
+To test it, run or resume Codex in one terminal split, focus another split, and ask Codex: `Boop me.`
+
+## After a VS Code update
+
+VS Code updates replace the patched workbench files. Reapply the visual pane marker from PowerShell:
+
+```powershell
+& "$HOME\.codex\bin\install-codex-attention-renderer.ps1"
+```
+
+Then open the Command Palette (`Ctrl+Shift+P`) and run `Developer: Reload Window`.
+VS Code's persistent-terminal support reconnects the existing local terminal processes and restores the split layout, so the running Codex sessions should survive the brief UI reload. This profile uses the default `terminal.integrated.enablePersistentSessions: true` setting.
+
+Only fully quit VS Code if `Developer: Reload Window` fails to load the marker.
+
+VS Code may report that the installation is modified or corrupt. This is expected because the visual pane marker injects a small local stylesheet and renderer script into VS Code's workbench. Dismiss the warning if the installed files and paths below are still trusted.
+
+## Removing the visual pane marker
+
+```powershell
+& "$HOME\.codex\bin\install-codex-attention-renderer.ps1" -Remove
+```
+
+Run `Developer: Reload Window` afterward. This removes only the unsupported renderer/CSS layer; the ordinary Codex notification extension remains installed.
+
+## Files
+
+- Notification bridge: `~/.codex/bin/codex-attention-notify.ps1`
+- Reapply/remove script: `~/.codex/bin/install-codex-attention-renderer.ps1`
+- Durable renderer source: `~/.codex/bin/codex-attention-renderer.js`
+- Durable renderer styles: `~/.codex/bin/codex-attention-renderer.css`
+- VS Code extension: `~/.vscode/extensions/jordan.codex-attention-0.1.0`
+- Per-build pristine backups: `~/.codex/backups/vscode-renderer/<build>/workbench.html.original`
+- Per-build product backups: `~/.codex/backups/vscode-renderer/<build>/product.json.original`
+- Codex notify configuration: `~/.codex/config.toml`
+- VS Code proposed-API opt-in: `%APPDATA%/Code/argv.json`
+
+## Troubleshooting
+
+1. Confirm ordinary notifications still appear. If not, check the extension and notification bridge first.
+2. If notifications work but the pane border does not, run the reapply command above and fully restart VS Code.
+3. If the installer says its VS Code loader anchors changed, do not patch manually from memory. The new VS Code build changed its workbench structure and the installer needs updating.
+4. If the wrong pane is highlighted, inspect the renderer against the new build. Renderer v3 subscribes directly to each terminal's exposed xterm `onBell` event and marks either its panel split (`.terminal-split-pane`) or editor-grid pane (`.editor-instance`). Its workbench asset URLs include a version query so window reloads cannot reuse an older cached renderer.
+
+After changing the notification extension itself, run `Developer: Restart Extension Host` from the Command Palette. This reloads extensions without reloading the workbench or terminating local terminal processes.
+
+This visual layer deliberately uses unsupported VS Code workbench injection because the public extension API cannot style one specific terminal split. It may require maintenance after VS Code updates.
+
+The installer also allowlists `jordan.codex-attention` for VS Code's proposed `terminalDataWriteEvent` in that build's `product.json`. This keeps terminal-aware delivery available after a window reload even when the long-running VS Code main process predates the `argv.json` startup flag.
