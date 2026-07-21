@@ -9,7 +9,8 @@ const path = require('path');
 const vscode = require('vscode');
 
 const BELL_PAIR_WINDOW_MS = 2500;
-const RECENT_BELL_WINDOW_MS = 1000;
+const MAX_PIPE_MESSAGE_CHARS = 64 * 1024;
+const PIPE_SOCKET_TIMEOUT_MS = 5000;
 const PIPE_REGISTRY_DIR = path.join(os.tmpdir(), 'codex-attention-pipes');
 
 /** @type {Map<string, {id: string, terminal?: import('vscode').Terminal, terminalName: string, cwd?: string, project: string, createdAt: Date}>} */
@@ -21,8 +22,10 @@ let statusItem;
 let pulseTimer;
 /** @type {Map<import('vscode').Terminal, Array<{message: any, timeout: NodeJS.Timeout}>>} */
 const pendingByTerminal = new Map();
-/** @type {WeakMap<import('vscode').Terminal, number>} */
-const recentBellAt = new WeakMap();
+/** @type {WeakMap<import('vscode').Terminal, string>} */
+const alertIdByTerminal = new WeakMap();
+/** @type {import('vscode').Disposable | undefined} */
+let terminalDataSubscription;
 
 function countLabel() {
   return unread.size === 1 ? '1 READY' : `${unread.size} READY`;
@@ -115,6 +118,7 @@ function clearTerminal(terminal) {
     clearTimeout(item.timeout);
   }
   pendingByTerminal.delete(terminal);
+  stopTerminalDataSubscriptionIfIdle();
   renderStatus(true);
 }
 
@@ -179,7 +183,16 @@ function launchWindowsNotifier(message) {
 }
 
 async function deliverNotification(message, terminal) {
-  const id = message.turnId || `${Date.now()}-${crypto.randomUUID()}`;
+  let id = terminal ? alertIdByTerminal.get(terminal) : undefined;
+  if (!id) {
+    id = terminal
+      ? `terminal-${crypto.randomUUID()}`
+      : message.turnId || `${Date.now()}-${crypto.randomUUID()}`;
+    if (terminal) {
+      alertIdByTerminal.set(terminal, id);
+    }
+  }
+  const alreadyUnread = unread.has(id);
   const cwd = message.cwd || undefined;
   const item = {
     id,
@@ -193,6 +206,14 @@ async function deliverNotification(message, terminal) {
   unread.set(id, item);
   startPulse();
   launchWindowsNotifier(message);
+
+  // One unresolved VS Code notification is sufficient for a terminal that is
+  // already waiting. Replacing the unread item keeps its metadata current
+  // without allowing notification promises or status-tooltip entries to grow
+  // once per completed turn.
+  if (alreadyUnread) {
+    return;
+  }
 
   const action = await vscode.window.showWarningMessage(
     `Codex finished in ${item.terminalName} — ${item.project}.`,
@@ -208,13 +229,6 @@ async function deliverNotification(message, terminal) {
 }
 
 function queueNotification(message, terminal) {
-  const recentBell = recentBellAt.get(terminal) || 0;
-  if (Date.now() - recentBell <= RECENT_BELL_WINDOW_MS) {
-    recentBellAt.delete(terminal);
-    void deliverNotification(message, terminal);
-    return;
-  }
-
   const entry = {
     message,
     timeout: setTimeout(() => {
@@ -225,11 +239,13 @@ function queueNotification(message, terminal) {
       } else {
         pendingByTerminal.delete(terminal);
       }
+      stopTerminalDataSubscriptionIfIdle();
     }, BELL_PAIR_WINDOW_MS)
   };
   const pending = pendingByTerminal.get(terminal) || [];
   pending.push(entry);
   pendingByTerminal.set(terminal, pending);
+  ensureTerminalDataSubscription();
 }
 
 function handleTerminalData(event) {
@@ -237,17 +253,29 @@ function handleTerminalData(event) {
     return;
   }
 
-  recentBellAt.set(event.terminal, Date.now());
   const pending = pendingByTerminal.get(event.terminal) || [];
   if (pending.length === 0) {
     return;
   }
 
   pendingByTerminal.delete(event.terminal);
-  recentBellAt.delete(event.terminal);
   for (const item of pending) {
     clearTimeout(item.timeout);
     void deliverNotification(item.message, event.terminal);
+  }
+  stopTerminalDataSubscriptionIfIdle();
+}
+
+function ensureTerminalDataSubscription() {
+  if (!terminalDataSubscription) {
+    terminalDataSubscription = vscode.window.onDidWriteTerminalData(handleTerminalData);
+  }
+}
+
+function stopTerminalDataSubscriptionIfIdle() {
+  if (pendingByTerminal.size === 0 && terminalDataSubscription) {
+    terminalDataSubscription.dispose();
+    terminalDataSubscription = undefined;
   }
 }
 
@@ -263,14 +291,17 @@ async function acceptNotification(socket, message, supportsTerminalData) {
     return;
   }
 
-  socket.end('accepted\n');
   queueNotification(message, terminal);
+  // The notify hook waits for this response. Queueing first ensures terminal
+  // data forwarding is armed before Codex can continue and emit its BEL.
+  socket.end('accepted\n');
 }
 
 function createPipeServer(pipeName, supportsTerminalData) {
   const pipePath = `\\\\.\\pipe\\${pipeName}`;
   const server = net.createServer(socket => {
     socket.setEncoding('utf8');
+    socket.setTimeout(PIPE_SOCKET_TIMEOUT_MS, () => socket.destroy());
     let buffer = '';
     let handled = false;
 
@@ -279,6 +310,11 @@ function createPipeServer(pipeName, supportsTerminalData) {
         return;
       }
       buffer += chunk;
+      if (buffer.length > MAX_PIPE_MESSAGE_CHARS) {
+        handled = true;
+        socket.end('fallback\n');
+        return;
+      }
       const newline = buffer.indexOf('\n');
       if (newline < 0) {
         return;
@@ -286,6 +322,7 @@ function createPipeServer(pipeName, supportsTerminalData) {
 
       handled = true;
       const line = buffer.slice(0, newline).trim();
+      buffer = '';
       try {
         const message = JSON.parse(line);
         void acceptNotification(socket, message, supportsTerminalData).catch(error => {
@@ -345,9 +382,7 @@ function activate(context) {
   context.subscriptions.push(statusItem);
 
   const supportsTerminalData = typeof vscode.window.onDidWriteTerminalData === 'function';
-  if (supportsTerminalData) {
-    context.subscriptions.push(vscode.window.onDidWriteTerminalData(handleTerminalData));
-  } else {
+  if (!supportsTerminalData) {
     console.warn('Codex Attention terminal-data API is unavailable; notifications will fail open.');
   }
 
@@ -387,6 +422,8 @@ function deactivate() {
     }
   }
   pendingByTerminal.clear();
+  terminalDataSubscription?.dispose();
+  terminalDataSubscription = undefined;
 }
 
 module.exports = { activate, deactivate };
