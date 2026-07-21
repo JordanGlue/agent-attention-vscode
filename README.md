@@ -21,7 +21,7 @@ Claude Code events arrive through a `Stop` hook rather than Codex's `notify` hoo
 - Claude cannot emit Codex's focus-conditioned BEL, so the extension delivers Claude events directly and performs the focus check itself. This path needs no proposed API.
 - The bridge rings the terminal bell itself (best-effort, via the attached console) so the injected pane renderer still marks the exact pane.
 
-Wire it up in `~/.claude/settings.json`:
+Wire it up in `~/.claude/settings.json`. Use forward slashes and an absolute path: Claude Code may run hook commands through a POSIX shell, which strips single backslashes and does not expand `%VAR%`:
 
 ```json
 {
@@ -31,7 +31,7 @@ Wire it up in `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\.claude\\bin\\claude-attention-notify.ps1"
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/<you>/.claude/bin/claude-attention-notify.ps1\""
           }
         ]
       }
