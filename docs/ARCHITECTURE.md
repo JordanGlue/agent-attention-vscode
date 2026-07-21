@@ -15,7 +15,7 @@
 2. The bridge walks ancestor process IDs and contacts the same pipe registry, tagging the message `source: "claude"`.
 3. The owning window resolves the terminal by process ID exactly as for Codex.
 4. Claude cannot emit a focus-conditioned BEL, so the extension does not wait for one: it checks focus itself (window focused and originating terminal active means suppress) and otherwise delivers immediately. This path avoids the proposed API entirely.
-5. The bridge then rings the terminal bell itself by writing BEL to the attached console (`Write-Host` bypasses the hook's captured stdout), which lets the injected renderer mark the exact pane. The renderer ignores bells in focused panes, and outside VS Code the write degrades to the terminal's native bell.
+5. The pane marker needs a bell inside the pane's xterm. The primary source is Claude Code itself: `"preferredNotifChannel": "terminal_bell"` in `~/.claude.json` makes the CLI (which owns the terminal) ring the bell on turn completion. The bridge also writes a best-effort BEL, but on Windows Claude Code spawns hooks into a detached invisible console (verified: the hook's console process list contains only the hook shells, not the CLI), so that write usually cannot reach the terminal.
 6. A Stop hook that exits with code 2 would block Claude from stopping, so the bridge swallows all errors and always exits 0.
 
 The pipe registry is essential after `Developer: Reload Window`: persistent terminal processes retain the old `CODEX_ATTENTION_PIPE` environment value, while the restarted extension host owns a new pipe.

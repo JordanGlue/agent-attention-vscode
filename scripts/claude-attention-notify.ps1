@@ -138,10 +138,12 @@ catch {
     Write-AttentionLog "VS Code delivery failed: $($_.Exception.Message)"
 }
 
-# Ring the terminal bell so the injected pane renderer marks the exact pane.
-# Write-Host reaches the attached console even though Claude Code captures
-# the hook's stdout and stderr. Outside VS Code this degrades to the
-# terminal's native bell; the renderer ignores bells in focused panes.
+# Best-effort terminal bell. On Windows, Claude Code spawns hooks into a
+# detached invisible console (verified via GetConsoleProcessList: the CLI
+# process is not in the hook's console), so this write usually goes nowhere.
+# The reliable bell is the CLI ringing its own terminal via the
+# preferredNotifChannel = "terminal_bell" setting in ~/.claude.json; the
+# injected pane renderer marks the pane from that bell.
 try {
     Write-Host -NoNewline ([string][char]7)
 }
