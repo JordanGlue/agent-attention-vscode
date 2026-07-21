@@ -27,6 +27,7 @@ if ($LASTEXITCODE -ne 0) { throw 'renderer JavaScript syntax check failed.' }
 
 foreach ($script in @(
     (Join-Path $PSScriptRoot 'codex-attention-notify.ps1'),
+    (Join-Path $PSScriptRoot 'claude-attention-notify.ps1'),
     (Join-Path $PSScriptRoot 'install-codex-attention-renderer.ps1'),
     (Join-Path $PSScriptRoot 'sync-to-profile.ps1'),
     $PSCommandPath
@@ -66,6 +67,7 @@ if ($CheckInstalled) {
     Assert-EqualFile (Join-Path $repoRoot 'renderer\codex-attention-renderer.css') (Join-Path $codexBin 'codex-attention-renderer.css')
     Assert-EqualFile (Join-Path $PSScriptRoot 'codex-attention-notify.ps1') (Join-Path $codexBin 'codex-attention-notify.ps1')
     Assert-EqualFile (Join-Path $PSScriptRoot 'install-codex-attention-renderer.ps1') (Join-Path $codexBin 'install-codex-attention-renderer.ps1')
+    Assert-EqualFile (Join-Path $PSScriptRoot 'claude-attention-notify.ps1') (Join-Path $HOME '.claude\bin\claude-attention-notify.ps1')
 }
 
 Write-Host "PASS: Codex Attention sources are valid (renderer $rendererVersion)."

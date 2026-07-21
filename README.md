@@ -1,17 +1,44 @@
 # Codex Attention for VS Code
 
-A personal Windows/VS Code integration that makes a completed Codex CLI turn request attention from the exact terminal pane where it is running.
+A personal Windows/VS Code integration that makes a completed Codex CLI or Claude Code turn request attention from the exact terminal pane where it is running.
 
 The working setup supports Jordan's six-terminal editor-grid layout as well as ordinary terminal panel splits.
 
 ## Behaviour
 
-- Skips the notification when the originating Codex terminal already has focus.
+- Skips the notification when the originating agent terminal already has focus.
 - Shows a VS Code alert with a **Jump to terminal** action.
-- Sends the existing Windows `boop` notification.
-- Adds a pulsing pink/gold border and `CODEX READY` badge to the exact waiting pane.
+- Sends the existing Windows `boop` notification (Codex only).
+- Adds a pulsing pink/gold border and `AGENT READY` badge to the exact waiting pane.
 - Clears the visual marker when that pane receives focus.
 - Preserves routing across `Developer: Reload Window` by rediscovering the restarted extension host.
+
+## Claude Code support
+
+Claude Code events arrive through a `Stop` hook rather than Codex's `notify` hook:
+
+- `scripts/claude-attention-notify.ps1` reads the hook payload from stdin, walks its ancestor process IDs, and reuses the same named-pipe protocol (`source: "claude"`).
+- Claude cannot emit Codex's focus-conditioned BEL, so the extension delivers Claude events directly and performs the focus check itself. This path needs no proposed API.
+- The bridge rings the terminal bell itself (best-effort, via the attached console) so the injected pane renderer still marks the exact pane.
+
+Wire it up in `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\.claude\\bin\\claude-attention-notify.ps1"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ## Source of truth
 
@@ -22,6 +49,7 @@ Edit files in this repository, not the deployed copies under `~/.codex`, `~/.vsc
 | `extension/*` | `~/.vscode/extensions/jordan.codex-attention-0.1.0/` |
 | `renderer/*` | `~/.codex/bin/` and the active VS Code workbench directory |
 | `scripts/codex-attention-notify.ps1` | `~/.codex/bin/` |
+| `scripts/claude-attention-notify.ps1` | `~/.claude/bin/` |
 | `scripts/install-codex-attention-renderer.ps1` | `~/.codex/bin/` |
 | `docs/MAINTENANCE.md` | `~/.codex/CODEX_ATTENTION.md` |
 
