@@ -7,9 +7,20 @@ param(
 $ErrorActionPreference = 'Stop'
 $logPath = Join-Path $env:TEMP 'codex-attention-notify.log'
 $pipeRegistryPath = Join-Path $env:TEMP 'codex-attention-pipes'
-$existingNotifier = 'C:\Users\Jordan\AppData\Local\OpenAI\Codex\runtimes\cua_node\03b1cdac8af3a530\bin\node_modules\@oai\sky\bin\windows\codex-computer-use.exe'
 $payload = if ($NotifyArguments.Count -gt 0) { $NotifyArguments[-1] } else { '{}' }
 $extensionAccepted = $false
+
+# The Codex Windows notifier lives under a per-version runtime hash that
+# changes across Codex updates, so discover the newest installed copy.
+$existingNotifier = $null
+$runtimeRoot = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\runtimes\cua_node'
+if (Test-Path -LiteralPath $runtimeRoot) {
+    $existingNotifier = Get-ChildItem -LiteralPath $runtimeRoot -Directory |
+        Sort-Object LastWriteTime -Descending |
+        ForEach-Object { Join-Path $_.FullName 'bin\node_modules\@oai\sky\bin\windows\codex-computer-use.exe' } |
+        Where-Object { Test-Path -LiteralPath $_ } |
+        Select-Object -First 1
+}
 
 function Write-AttentionLog {
     param([string] $Message)
@@ -138,11 +149,11 @@ try {
         # The extension now owns delivery and suppresses it unless Codex emits
         # its focus-conditioned terminal bell for this completed turn.
     }
-    elseif (Test-Path -LiteralPath $existingNotifier) {
+    elseif ($existingNotifier) {
         & $existingNotifier 'turn-ended' $payload | Out-Null
     }
     else {
-        Write-AttentionLog "Existing Windows notifier was not found: $existingNotifier"
+        Write-AttentionLog "No installed Codex Windows notifier was found below: $runtimeRoot"
     }
 }
 catch {

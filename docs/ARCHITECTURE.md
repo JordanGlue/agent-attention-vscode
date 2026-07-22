@@ -47,7 +47,7 @@ The renderer asset URLs include the renderer version as a query parameter. Incre
 - VS Code updates replace patched application files.
 - DOM classes such as `.editor-instance`, `.terminal-wrapper`, and the exposed `wrapper.xterm` property are internal implementation details.
 - Proposed API names or enablement rules may change.
-- The Windows notifier path currently comes from the installed Codex runtime and may move after a Codex update.
+- The Windows notifier is discovered under `%LOCALAPPDATA%\OpenAI\Codex\runtimes\cua_node` (newest runtime wins); a Codex update that relocates it entirely breaks the fallback notification.
 - The integrity warning is expected and does not by itself indicate a broken patch.
 
 Keep per-build pristine backups. If loader anchors or internal terminal DOM structure changes, stop and inspect the new build rather than forcing the old patch.
