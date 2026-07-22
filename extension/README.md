@@ -1,4 +1,4 @@
-# Codex Attention
+# Agent Attention
 
 A personal, dependency-free VS Code extension for dramatic Codex CLI and Claude Code completion alerts.
 

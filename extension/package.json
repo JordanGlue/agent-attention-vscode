@@ -1,9 +1,9 @@
 {
-  "name": "codex-attention",
-  "displayName": "Codex Attention",
+  "name": "agent-attention",
+  "displayName": "Agent Attention",
   "description": "Dramatic, terminal-aware completion alerts for Codex CLI and Claude Code in VS Code.",
-  "version": "0.1.0",
-  "publisher": "jordan",
+  "version": "0.2.0",
+  "publisher": "local",
   "private": true,
   "engines": {
     "vscode": "^1.90.0"
@@ -24,12 +24,12 @@
   "contributes": {
     "commands": [
       {
-        "command": "codexAttention.showUnread",
-        "title": "Codex Attention: Show Waiting Terminals"
+        "command": "agentAttention.showUnread",
+        "title": "Agent Attention: Show Waiting Terminals"
       },
       {
-        "command": "codexAttention.clearAll",
-        "title": "Codex Attention: Clear All Alerts"
+        "command": "agentAttention.clearAll",
+        "title": "Agent Attention: Clear All Alerts"
       }
     ]
   }

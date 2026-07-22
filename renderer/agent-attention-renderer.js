@@ -1,13 +1,13 @@
 (() => {
-  const VERSION = "0.4.0";
-  const MARKER_CLASS = "codex-attention-waiting";
+  const VERSION = "0.5.0";
+  const MARKER_CLASS = "agent-attention-waiting";
 
-  if (window.__codexAttentionRenderer?.version === VERSION) {
-    window.__codexAttentionRenderer.sync();
+  if (window.__agentAttentionRenderer?.version === VERSION) {
+    window.__agentAttentionRenderer.sync();
     return;
   }
 
-  window.__codexAttentionRenderer?.destroy?.();
+  window.__agentAttentionRenderer?.destroy?.();
 
   const subscriptions = new Map();
   let animationFrame = 0;
@@ -18,7 +18,7 @@
 
   function clearPane(pane) {
     pane?.classList.remove(MARKER_CLASS);
-    pane?.removeAttribute("data-codex-attention");
+    pane?.removeAttribute("data-agent-attention");
   }
 
   function markPane(pane) {
@@ -28,7 +28,7 @@
     }
 
     pane.classList.add(MARKER_CLASS);
-    pane.setAttribute("data-codex-attention", "Agent turn finished");
+    pane.setAttribute("data-agent-attention", "Agent turn finished");
   }
 
   function sync() {
@@ -85,9 +85,9 @@
     for (const subscription of subscriptions.values()) subscription.dispose();
     subscriptions.clear();
     for (const pane of document.querySelectorAll(`.${MARKER_CLASS}`)) clearPane(pane);
-    delete window.__codexAttentionRenderer;
+    delete window.__agentAttentionRenderer;
   }
 
-  window.__codexAttentionRenderer = { version: VERSION, sync, destroy };
+  window.__agentAttentionRenderer = { version: VERSION, sync, destroy };
   sync();
 })();

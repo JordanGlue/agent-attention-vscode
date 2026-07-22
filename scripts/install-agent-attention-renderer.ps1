@@ -30,18 +30,31 @@ if (-not $build) {
 $workbenchDir = Join-Path $build.FullName $relativeWorkbench
 $htmlPath = Join-Path $workbenchDir 'workbench.html'
 $productPath = Join-Path $build.FullName 'resources\app\product.json'
-$cssTarget = Join-Path $workbenchDir 'codex-attention-renderer.css'
-$jsTarget = Join-Path $workbenchDir 'codex-attention-renderer.js'
-$cssSource = Join-Path $PSScriptRoot 'codex-attention-renderer.css'
-$jsSource = Join-Path $PSScriptRoot 'codex-attention-renderer.js'
-$cssTag = "`t`t<link rel=`"stylesheet`" href=`"./codex-attention-renderer.css?v=0.4.0`">"
-$jsTag = "`t<script src=`"./codex-attention-renderer.js?v=0.4.0`" type=`"module`"></script>"
+$cssTarget = Join-Path $workbenchDir 'agent-attention-renderer.css'
+$jsTarget = Join-Path $workbenchDir 'agent-attention-renderer.js'
+$legacyCssTarget = Join-Path $workbenchDir 'codex-attention-renderer.css'
+$legacyJsTarget = Join-Path $workbenchDir 'codex-attention-renderer.js'
+$cssSource = Join-Path $PSScriptRoot 'agent-attention-renderer.css'
+$jsSource = Join-Path $PSScriptRoot 'agent-attention-renderer.js'
+$cssTag = "`t`t<link rel=`"stylesheet`" href=`"./agent-attention-renderer.css?v=0.5.0`">"
+$jsTag = "`t<script src=`"./agent-attention-renderer.js?v=0.5.0`" type=`"module`"></script>"
 $html = Get-Content -Raw -LiteralPath $htmlPath
 
 function Remove-AttentionTags {
     param([string] $Html)
-    $result = [regex]::Replace($Html, '[ \t]*<link rel="stylesheet" href="\./codex-attention-renderer\.css\?v=[^"]*">\r?\n', '')
-    return [regex]::Replace($result, '[ \t]*<script src="\./codex-attention-renderer\.js\?v=[^"]*" type="module"></script>\r?\n', '')
+    # Also matches the pre-rename codex-attention asset names so upgrading
+    # a previously patched build replaces the old tags instead of stacking.
+    $result = [regex]::Replace($Html, '[ \t]*<link rel="stylesheet" href="\./(?:codex|agent)-attention-renderer\.css\?v=[^"]*">\r?\n', '')
+    return [regex]::Replace($result, '[ \t]*<script src="\./(?:codex|agent)-attention-renderer\.js\?v=[^"]*" type="module"></script>\r?\n', '')
+}
+
+function Remove-AttentionProposalEntries {
+    param([string] $Product)
+    return [regex]::Replace(
+        $Product,
+        '\r?\n\t\t"(?:jordan\.codex-attention|local\.agent-attention)": \[\r?\n\t\t\t"terminalDataWriteEvent"\r?\n\t\t\],',
+        ''
+    )
 }
 
 if ($Remove) {
@@ -50,18 +63,14 @@ if ($Remove) {
         [IO.File]::WriteAllText($htmlPath, $updated, [Text.UTF8Encoding]::new($false))
     }
     $product = Get-Content -Raw -LiteralPath $productPath
-    $productUpdated = [regex]::Replace(
-        $product,
-        '\r?\n\t\t"jordan\.codex-attention": \[\r?\n\t\t\t"terminalDataWriteEvent"\r?\n\t\t\],',
-        ''
-    )
+    $productUpdated = Remove-AttentionProposalEntries -Product $product
     if ($productUpdated -ne $product) {
         [IO.File]::WriteAllText($productPath, $productUpdated, [Text.UTF8Encoding]::new($false))
     }
-    Remove-Item -LiteralPath $cssTarget, $jsTarget -Force -ErrorAction SilentlyContinue
-    Write-Host "Removed Codex pane attention renderer from VS Code build $buildLabel."
+    Remove-Item -LiteralPath $cssTarget, $jsTarget, $legacyCssTarget, $legacyJsTarget -Force -ErrorAction SilentlyContinue
+    Write-Host "Removed the agent attention pane renderer from VS Code build $buildLabel."
     Write-Host 'Run "Developer: Reload Window" in VS Code to unload it.'
-    Write-Host "Guide: $HOME\.codex\CODEX_ATTENTION.md"
+    Write-Host "Guide: $HOME\.agent-attention\MAINTENANCE.md"
     return
 }
 
@@ -69,11 +78,11 @@ if (-not (Test-Path -LiteralPath $cssSource) -or -not (Test-Path -LiteralPath $j
     throw "Renderer source files are missing from $PSScriptRoot"
 }
 
-$backupDir = Join-Path $HOME ".codex\backups\vscode-renderer\$buildLabel"
+$backupDir = Join-Path $HOME ".agent-attention\backups\vscode-renderer\$buildLabel"
 $backupPath = Join-Path $backupDir 'workbench.html.original'
 $productBackupPath = Join-Path $backupDir 'product.json.original'
 if (-not (Test-Path -LiteralPath $backupPath)) {
-    if ($html.Contains('codex-attention-renderer')) {
+    if ($html.Contains('agent-attention-renderer') -or $html.Contains('codex-attention-renderer')) {
         throw "This build is already patched, but its pristine backup is missing: $backupPath"
     }
     New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
@@ -82,7 +91,7 @@ if (-not (Test-Path -LiteralPath $backupPath)) {
 
 $product = Get-Content -Raw -LiteralPath $productPath
 if (-not (Test-Path -LiteralPath $productBackupPath)) {
-    if ($product.Contains('"jordan.codex-attention"')) {
+    if ($product.Contains('"local.agent-attention"') -or $product.Contains('"jordan.codex-attention"')) {
         throw "This build's product metadata is already patched, but its pristine backup is missing: $productBackupPath"
     }
     Copy-Item -LiteralPath $productPath -Destination $productBackupPath
@@ -90,6 +99,7 @@ if (-not (Test-Path -LiteralPath $productBackupPath)) {
 
 Copy-Item -LiteralPath $cssSource -Destination $cssTarget -Force
 Copy-Item -LiteralPath $jsSource -Destination $jsTarget -Force
+Remove-Item -LiteralPath $legacyCssTarget, $legacyJsTarget -Force -ErrorAction SilentlyContinue
 
 $newline = if ($html.Contains("`r`n")) { "`r`n" } else { "`n" }
 # Strip any previously injected tags first so a version bump replaces the
@@ -111,16 +121,19 @@ if ($updated -ne $html) {
 }
 
 $productNewline = if ($product.Contains("`r`n")) { "`r`n" } else { "`n" }
-if (-not $product.Contains('"jordan.codex-attention"')) {
+$productCleaned = Remove-AttentionProposalEntries -Product $product
+if (-not $productCleaned.Contains('"local.agent-attention"')) {
     $proposalAnchor = "`t`"extensionEnabledApiProposals`": {"
-    if (-not $product.Contains($proposalAnchor)) { throw 'VS Code proposed-API allowlist anchor changed.' }
-    $proposalEntry = "`t`t`"jordan.codex-attention`": [$productNewline`t`t`t`"terminalDataWriteEvent`"$productNewline`t`t],"
-    $product = $product.Replace($proposalAnchor, "$proposalAnchor$productNewline$proposalEntry")
-    [IO.File]::WriteAllText($productPath, $product, [Text.UTF8Encoding]::new($false))
+    if (-not $productCleaned.Contains($proposalAnchor)) { throw 'VS Code proposed-API allowlist anchor changed.' }
+    $proposalEntry = "`t`t`"local.agent-attention`": [$productNewline`t`t`t`"terminalDataWriteEvent`"$productNewline`t`t],"
+    $productCleaned = $productCleaned.Replace($proposalAnchor, "$proposalAnchor$productNewline$proposalEntry")
+}
+if ($productCleaned -ne $product) {
+    [IO.File]::WriteAllText($productPath, $productCleaned, [Text.UTF8Encoding]::new($false))
 }
 
-Write-Host "Installed Codex pane attention renderer into VS Code build $buildLabel."
+Write-Host "Installed the agent attention pane renderer into VS Code build $buildLabel."
 Write-Host "Backup: $backupPath"
 Write-Host "Product backup: $productBackupPath"
 Write-Host 'Run "Developer: Reload Window" in VS Code to load it.'
-Write-Host "Guide: $HOME\.codex\CODEX_ATTENTION.md"
+Write-Host "Guide: $HOME\.agent-attention\MAINTENANCE.md"

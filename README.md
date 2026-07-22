@@ -1,8 +1,8 @@
-# Codex Attention for VS Code
+# Agent Attention for VS Code
 
 A personal Windows/VS Code integration that makes a completed Codex CLI or Claude Code turn request attention from the exact terminal pane where it is running.
 
-The working setup supports Jordan's six-terminal editor-grid layout as well as ordinary terminal panel splits.
+The working setup supports a six-terminal editor-grid layout as well as ordinary terminal panel splits.
 
 ## Behaviour
 
@@ -42,16 +42,16 @@ Wire it up in `~/.claude/settings.json`. Use forward slashes and an absolute pat
 
 ## Source of truth
 
-Edit files in this repository, not the deployed copies under `~/.codex`, `~/.vscode`, or the VS Code installation.
+Edit files in this repository, not the deployed copies under `~/.agent-attention`, `~/.codex`, `~/.claude`, `~/.vscode`, or the VS Code installation.
 
 | Repository source | Deployed location |
 |---|---|
-| `extension/*` | `~/.vscode/extensions/jordan.codex-attention-0.1.0/` |
-| `renderer/*` | `~/.codex/bin/` and the active VS Code workbench directory |
+| `extension/*` | `~/.vscode/extensions/local.agent-attention-0.2.0/` |
+| `renderer/*` | `~/.agent-attention/` and the active VS Code workbench directory |
 | `scripts/codex-attention-notify.ps1` | `~/.codex/bin/` |
 | `scripts/claude-attention-notify.ps1` | `~/.claude/bin/` |
-| `scripts/install-codex-attention-renderer.ps1` | `~/.codex/bin/` |
-| `docs/MAINTENANCE.md` | `~/.codex/CODEX_ATTENTION.md` |
+| `scripts/install-agent-attention-renderer.ps1` | `~/.agent-attention/` |
+| `docs/MAINTENANCE.md` | `~/.agent-attention/MAINTENANCE.md` |
 
 ## Editing workflow
 
@@ -83,6 +83,6 @@ VS Code will report that its installation appears corrupt because its workbench 
 & .\scripts\verify.ps1 -CheckInstalled
 ```
 
-This parses both PowerShell scripts, checks both JavaScript files, validates the extension manifest, verifies the renderer/cache-buster version coupling, and optionally compares repository files with deployed profile copies.
+This parses all PowerShell scripts, checks both JavaScript files, validates the extension manifest, verifies the renderer/cache-buster version coupling, and optionally compares repository files with deployed profile copies.
 
 See [architecture](docs/ARCHITECTURE.md) for the event flow and [maintenance](docs/MAINTENANCE.md) for operational recovery notes.

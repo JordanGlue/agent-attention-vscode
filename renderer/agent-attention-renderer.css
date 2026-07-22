@@ -1,4 +1,4 @@
-@keyframes codex-attention-border-pulse {
+@keyframes agent-attention-border-pulse {
   0%, 100% {
     border-color: #ffd43b;
     box-shadow:
@@ -13,11 +13,11 @@
   }
 }
 
-:is(.terminal-split-pane, .editor-instance).codex-attention-waiting {
+:is(.terminal-split-pane, .editor-instance).agent-attention-waiting {
   position: relative !important;
 }
 
-:is(.terminal-split-pane, .editor-instance).codex-attention-waiting::before {
+:is(.terminal-split-pane, .editor-instance).agent-attention-waiting::before {
   content: "AGENT READY";
   position: absolute;
   top: 8px;
@@ -37,18 +37,18 @@
   pointer-events: none;
 }
 
-:is(.terminal-split-pane, .editor-instance).codex-attention-waiting::after {
+:is(.terminal-split-pane, .editor-instance).agent-attention-waiting::after {
   content: "";
   position: absolute;
   inset: 2px;
   z-index: 10000;
   border: 4px solid #ffd43b;
   border-radius: 3px;
-  animation: codex-attention-border-pulse 1.15s ease-in-out infinite;
+  animation: agent-attention-border-pulse 1.15s ease-in-out infinite;
   pointer-events: none;
 }
 
 .monaco-workbench.monaco-reduce-motion
-  :is(.terminal-split-pane, .editor-instance).codex-attention-waiting::after {
+  :is(.terminal-split-pane, .editor-instance).agent-attention-waiting::after {
   animation: none;
 }

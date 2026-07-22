@@ -11,7 +11,7 @@ const vscode = require('vscode');
 const BELL_PAIR_WINDOW_MS = 2500;
 const MAX_PIPE_MESSAGE_CHARS = 64 * 1024;
 const PIPE_SOCKET_TIMEOUT_MS = 5000;
-const PIPE_REGISTRY_DIR = path.join(os.tmpdir(), 'codex-attention-pipes');
+const PIPE_REGISTRY_DIR = path.join(os.tmpdir(), 'agent-attention-pipes');
 
 /** @type {Map<string, {id: string, terminal?: import('vscode').Terminal, terminalName: string, cwd?: string, project: string, agent: string, createdAt: Date}>} */
 const unread = new Map();
@@ -154,7 +154,7 @@ async function showUnreadPicker() {
   }));
 
   const choice = await vscode.window.showQuickPick(choices, {
-    title: 'Codex Attention',
+    title: 'Agent Attention',
     placeHolder: 'Choose a terminal to resume'
   });
   if (choice) {
@@ -183,11 +183,11 @@ function launchWindowsNotifier(message) {
       { detached: true, stdio: 'ignore', windowsHide: true }
     );
     process.on('error', error => {
-      console.error('Codex Attention Windows notifier failed:', error);
+      console.error('Agent Attention Windows notifier failed:', error);
     });
     process.unref();
   } catch (error) {
-    console.error('Codex Attention could not launch the Windows notifier:', error);
+    console.error('Agent Attention could not launch the Windows notifier:', error);
   }
 }
 
@@ -356,21 +356,21 @@ function createPipeServer(pipeName, supportsTerminalData) {
       try {
         const message = JSON.parse(line);
         void acceptNotification(socket, message, supportsTerminalData).catch(error => {
-          console.error('Codex Attention rejected a notification:', error);
+          console.error('Agent Attention rejected a notification:', error);
           if (!socket.destroyed) {
             socket.end('fallback\n');
           }
         });
       } catch (error) {
-        console.error('Codex Attention rejected a notification:', error);
+        console.error('Agent Attention rejected a notification:', error);
         socket.end('fallback\n');
       }
     });
   });
 
   server.on('error', error => {
-    console.error('Codex Attention pipe server failed:', error);
-    vscode.window.showErrorMessage(`Codex Attention could not start: ${error.message}`);
+    console.error('Agent Attention pipe server failed:', error);
+    vscode.window.showErrorMessage(`Agent Attention could not start: ${error.message}`);
   });
   server.listen(pipePath);
   return server;
@@ -397,7 +397,7 @@ function registerPipe(pipeName) {
       }
     });
   } catch (error) {
-    console.error('Codex Attention could not register its pipe:', error);
+    console.error('Agent Attention could not register its pipe:', error);
     return new vscode.Disposable(() => {});
   }
 }
@@ -407,30 +407,30 @@ function registerPipe(pipeName) {
  */
 function activate(context) {
   statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000);
-  statusItem.name = 'Codex Attention';
-  statusItem.command = 'codexAttention.showUnread';
+  statusItem.name = 'Agent Attention';
+  statusItem.command = 'agentAttention.showUnread';
   context.subscriptions.push(statusItem);
 
   const supportsTerminalData = typeof vscode.window.onDidWriteTerminalData === 'function';
   if (!supportsTerminalData) {
-    console.warn('Codex Attention terminal-data API is unavailable; notifications will fail open.');
+    console.warn('Agent Attention terminal-data API is unavailable; notifications will fail open.');
   }
 
-  const pipeName = `codex-attention-${crypto.randomUUID()}`;
+  const pipeName = `agent-attention-${crypto.randomUUID()}`;
   const server = createPipeServer(pipeName, supportsTerminalData);
   context.subscriptions.push(new vscode.Disposable(() => server.close()));
   context.subscriptions.push(registerPipe(pipeName));
 
   const environment = context.environmentVariableCollection;
-  environment.replace('CODEX_ATTENTION_PIPE', pipeName);
-  environment.description = 'Routes Codex completion events to the Codex Attention extension.';
+  environment.replace('AGENT_ATTENTION_PIPE', pipeName);
+  environment.description = 'Routes agent completion events to the Agent Attention extension.';
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('codexAttention.showUnread', showUnreadPicker),
-    vscode.commands.registerCommand('codexAttention.clearAll', () => {
+    vscode.commands.registerCommand('agentAttention.showUnread', showUnreadPicker),
+    vscode.commands.registerCommand('agentAttention.clearAll', () => {
       unread.clear();
       renderStatus(true);
-      vscode.window.setStatusBarMessage('$(check) Cleared all Codex alerts.', 2500);
+      vscode.window.setStatusBarMessage('$(check) Cleared all agent alerts.', 2500);
     }),
     vscode.window.onDidChangeActiveTerminal(terminal => {
       if (terminal) {

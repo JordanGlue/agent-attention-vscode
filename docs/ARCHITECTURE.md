@@ -3,7 +3,7 @@
 ## Completion flow (Codex)
 
 1. Codex invokes `codex-attention-notify.ps1` for a completed turn.
-2. The bridge walks its ancestor process IDs and contacts live extension pipes registered under `%TEMP%\codex-attention-pipes`.
+2. The bridge walks its ancestor process IDs and contacts live extension pipes registered under `%TEMP%\agent-attention-pipes`.
 3. Each VS Code window attempts to resolve those process IDs to one of its terminals. Only the owning window accepts the event.
 4. The extension waits for the originating terminal's focus-conditioned BEL through the proposed `terminalDataWriteEvent` API.
 5. On BEL, the extension shows the VS Code alert/status indicator and launches the Windows notifier.
@@ -22,23 +22,23 @@ The pipe registry is essential after `Developer: Reload Window`: persistent term
 
 ## Pane targeting
 
-Renderer v3 resolves the pane at bell time:
+The renderer resolves the pane at bell time:
 
 - Terminal panel split: `.terminal-split-pane`
 - Terminal opened in the editor grid: `.editor-instance`
 
 Resolving at event time also supports terminals moved between the panel and editor area after startup.
 
-The marker is the `codex-attention-waiting` class. The stylesheet supplies the animated border and badge. Focusing the pane removes the marker.
+The marker is the `agent-attention-waiting` class. The stylesheet supplies the animated border and badge. Focusing the pane removes the marker.
 
 ## Unsupported surfaces
 
 VS Code's public extension API cannot style one specific terminal pane. This project therefore patches:
 
 - `workbench.html` to load the renderer JavaScript and CSS.
-- `product.json` to allow `jordan.codex-attention` to use `terminalDataWriteEvent` without restarting a long-running VS Code main process.
+- `product.json` to allow `local.agent-attention` to use `terminalDataWriteEvent` without restarting a long-running VS Code main process.
 
-`%APPDATA%\Code\argv.json` also enables that proposal for normal future application starts.
+`~/.vscode/argv.json` also enables that proposal for normal future application starts.
 
 The renderer asset URLs include the renderer version as a query parameter. Increment the JavaScript `VERSION` and both installer URL query strings together whenever renderer behaviour changes; otherwise Chromium may reuse an older module from cache across window reloads.
 

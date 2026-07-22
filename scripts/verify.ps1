@@ -19,7 +19,7 @@ function Assert-EqualFile {
 }
 
 $extensionJs = Join-Path $repoRoot 'extension\extension.js'
-$rendererJs = Join-Path $repoRoot 'renderer\codex-attention-renderer.js'
+$rendererJs = Join-Path $repoRoot 'renderer\agent-attention-renderer.js'
 & node --check $extensionJs
 if ($LASTEXITCODE -ne 0) { throw 'extension.js syntax check failed.' }
 & node --check $rendererJs
@@ -28,7 +28,7 @@ if ($LASTEXITCODE -ne 0) { throw 'renderer JavaScript syntax check failed.' }
 foreach ($script in @(
     (Join-Path $PSScriptRoot 'codex-attention-notify.ps1'),
     (Join-Path $PSScriptRoot 'claude-attention-notify.ps1'),
-    (Join-Path $PSScriptRoot 'install-codex-attention-renderer.ps1'),
+    (Join-Path $PSScriptRoot 'install-agent-attention-renderer.ps1'),
     (Join-Path $PSScriptRoot 'sync-to-profile.ps1'),
     $PSCommandPath
 )) {
@@ -36,7 +36,7 @@ foreach ($script in @(
 }
 
 $manifest = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'extension\package.json') | ConvertFrom-Json
-if ($manifest.publisher -ne 'jordan' -or $manifest.name -ne 'codex-attention') {
+if ($manifest.publisher -ne 'local' -or $manifest.name -ne 'agent-attention') {
     throw 'Unexpected extension identity in package.json.'
 }
 if (@($manifest.enabledApiProposals) -notcontains 'terminalDataWriteEvent') {
@@ -47,27 +47,27 @@ $rendererText = Get-Content -Raw -LiteralPath $rendererJs
 $versionMatch = [regex]::Match($rendererText, 'const VERSION = "([^"]+)"')
 if (-not $versionMatch.Success) { throw 'Renderer VERSION was not found.' }
 $rendererVersion = $versionMatch.Groups[1].Value
-$installerText = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'install-codex-attention-renderer.ps1')
-if (-not $installerText.Contains("codex-attention-renderer.js?v=$rendererVersion") -or
-    -not $installerText.Contains("codex-attention-renderer.css?v=$rendererVersion")) {
+$installerText = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'install-agent-attention-renderer.ps1')
+if (-not $installerText.Contains("agent-attention-renderer.js?v=$rendererVersion") -or
+    -not $installerText.Contains("agent-attention-renderer.css?v=$rendererVersion")) {
     throw "Installer cache-buster does not match renderer version $rendererVersion."
 }
 
-$rendererCss = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'renderer\codex-attention-renderer.css')
+$rendererCss = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'renderer\agent-attention-renderer.css')
 if (-not $rendererCss.Contains('.editor-instance') -or -not $rendererCss.Contains('.terminal-split-pane')) {
     throw 'Renderer CSS does not cover both supported pane layouts.'
 }
 
 if ($CheckInstalled) {
-    $extensionTarget = Join-Path $HOME '.vscode\extensions\jordan.codex-attention-0.1.0'
-    $codexBin = Join-Path $HOME '.codex\bin'
+    $extensionTarget = Join-Path $HOME '.vscode\extensions\local.agent-attention-0.2.0'
+    $agentHome = Join-Path $HOME '.agent-attention'
     Assert-EqualFile $extensionJs (Join-Path $extensionTarget 'extension.js')
     Assert-EqualFile (Join-Path $repoRoot 'extension\package.json') (Join-Path $extensionTarget 'package.json')
-    Assert-EqualFile $rendererJs (Join-Path $codexBin 'codex-attention-renderer.js')
-    Assert-EqualFile (Join-Path $repoRoot 'renderer\codex-attention-renderer.css') (Join-Path $codexBin 'codex-attention-renderer.css')
-    Assert-EqualFile (Join-Path $PSScriptRoot 'codex-attention-notify.ps1') (Join-Path $codexBin 'codex-attention-notify.ps1')
-    Assert-EqualFile (Join-Path $PSScriptRoot 'install-codex-attention-renderer.ps1') (Join-Path $codexBin 'install-codex-attention-renderer.ps1')
+    Assert-EqualFile $rendererJs (Join-Path $agentHome 'agent-attention-renderer.js')
+    Assert-EqualFile (Join-Path $repoRoot 'renderer\agent-attention-renderer.css') (Join-Path $agentHome 'agent-attention-renderer.css')
+    Assert-EqualFile (Join-Path $PSScriptRoot 'install-agent-attention-renderer.ps1') (Join-Path $agentHome 'install-agent-attention-renderer.ps1')
+    Assert-EqualFile (Join-Path $PSScriptRoot 'codex-attention-notify.ps1') (Join-Path $HOME '.codex\bin\codex-attention-notify.ps1')
     Assert-EqualFile (Join-Path $PSScriptRoot 'claude-attention-notify.ps1') (Join-Path $HOME '.claude\bin\claude-attention-notify.ps1')
 }
 
-Write-Host "PASS: Codex Attention sources are valid (renderer $rendererVersion)."
+Write-Host "PASS: Agent Attention sources are valid (renderer $rendererVersion)."
