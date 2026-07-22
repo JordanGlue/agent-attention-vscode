@@ -13,7 +13,7 @@ const MAX_PIPE_MESSAGE_CHARS = 64 * 1024;
 const PIPE_SOCKET_TIMEOUT_MS = 5000;
 const PIPE_REGISTRY_DIR = path.join(os.tmpdir(), 'codex-attention-pipes');
 
-/** @type {Map<string, {id: string, terminal?: import('vscode').Terminal, terminalName: string, cwd?: string, project: string, createdAt: Date}>} */
+/** @type {Map<string, {id: string, terminal?: import('vscode').Terminal, terminalName: string, cwd?: string, project: string, agent: string, createdAt: Date}>} */
 const unread = new Map();
 
 /** @type {import('vscode').StatusBarItem | undefined} */
@@ -31,6 +31,15 @@ function countLabel() {
   return unread.size === 1 ? '1 READY' : `${unread.size} READY`;
 }
 
+function messageAgent(message) {
+  return message.source === 'claude' ? 'Claude' : 'Codex';
+}
+
+function agentLabel() {
+  const agents = new Set(Array.from(unread.values(), item => item.agent));
+  return agents.size === 1 ? agents.values().next().value.toUpperCase() : 'AGENTS';
+}
+
 function renderStatus(pulseOn = true) {
   if (!statusItem) {
     return;
@@ -42,8 +51,8 @@ function renderStatus(pulseOn = true) {
   }
 
   statusItem.text = pulseOn
-    ? `$(bell-dot) CODEX ${countLabel()}`
-    : `$(alert) CODEX ${countLabel()}`;
+    ? `$(bell-dot) ${agentLabel()} ${countLabel()}`
+    : `$(alert) ${agentLabel()} ${countLabel()}`;
   statusItem.backgroundColor = pulseOn
     ? new vscode.ThemeColor('statusBarItem.warningBackground')
     : undefined;
@@ -52,9 +61,9 @@ function renderStatus(pulseOn = true) {
 }
 
 function buildTooltip() {
-  const lines = ['Codex is waiting in:'];
+  const lines = ['Agent turns are waiting in:'];
   for (const item of unread.values()) {
-    lines.push(`• ${item.terminalName} — ${item.project}`);
+    lines.push(`• ${item.terminalName} — ${item.project} (${item.agent})`);
   }
   lines.push('', 'Click to jump to a waiting terminal.');
   return lines.join('\n');
@@ -133,7 +142,7 @@ async function jumpToAlert(item) {
 
 async function showUnreadPicker() {
   if (unread.size === 0) {
-    vscode.window.setStatusBarMessage('$(check) No Codex terminals are waiting.', 2500);
+    vscode.window.setStatusBarMessage('$(check) No agent terminals are waiting.', 2500);
     return;
   }
 
@@ -194,12 +203,14 @@ async function deliverNotification(message, terminal) {
   }
   const alreadyUnread = unread.has(id);
   const cwd = message.cwd || undefined;
+  const agent = messageAgent(message);
   const item = {
     id,
     terminal,
-    terminalName: terminal ? terminal.name : 'Codex terminal',
+    terminalName: terminal ? terminal.name : `${agent} terminal`,
     cwd,
     project: projectName(cwd),
+    agent,
     createdAt: new Date()
   };
 
@@ -216,7 +227,7 @@ async function deliverNotification(message, terminal) {
   }
 
   const action = await vscode.window.showWarningMessage(
-    `Codex finished in ${item.terminalName} — ${item.project}.`,
+    `${item.agent} finished in ${item.terminalName} — ${item.project}.`,
     'Jump to terminal',
     'Dismiss'
   );
@@ -280,6 +291,25 @@ function stopTerminalDataSubscriptionIfIdle() {
 }
 
 async function acceptNotification(socket, message, supportsTerminalData) {
+  if (message.source === 'claude') {
+    const terminal = await resolveTerminal(message.ancestorPids);
+    if (!terminal) {
+      socket.end('fallback\n');
+      return;
+    }
+
+    socket.end('accepted\n');
+    // Claude Code cannot emit Codex's focus-conditioned BEL, so the focus
+    // check happens here instead: a focused originating terminal is being
+    // watched and needs no alert. This path never touches the proposed
+    // terminal-data API.
+    if (vscode.window.state.focused && vscode.window.activeTerminal === terminal) {
+      return;
+    }
+    void deliverNotification(message, terminal);
+    return;
+  }
+
   if (!supportsTerminalData) {
     socket.end('fallback\n');
     return;

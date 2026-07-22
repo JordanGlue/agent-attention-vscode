@@ -18,7 +18,7 @@
 }
 
 :is(.terminal-split-pane, .editor-instance).codex-attention-waiting::before {
-  content: "CODEX READY";
+  content: "AGENT READY";
   position: absolute;
   top: 8px;
   right: 12px;

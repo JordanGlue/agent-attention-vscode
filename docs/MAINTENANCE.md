@@ -1,12 +1,12 @@
 # Codex attention notifications in VS Code
 
-This setup makes a finished Codex CLI turn request attention from the exact VS Code terminal split where Codex is running.
+This setup makes a finished Codex CLI or Claude Code turn request attention from the exact VS Code terminal split where the agent is running.
 
 ## Normal behaviour
 
-- If the Codex terminal is already focused, no notification is shown.
+- If the agent's terminal is already focused, no notification is shown.
 - If it is unfocused, VS Code shows a notification with a button that focuses the correct terminal.
-- The correct terminal split gets a pulsing pink/gold border and a `CODEX READY` badge.
+- The correct terminal split gets a pulsing pink/gold border and an `AGENT READY` badge.
 - Focusing that split acknowledges and clears the visual marker.
 - Window reloads preserve terminal processes. The notification bridge discovers the newly restarted extension host instead of relying only on the terminal's now-stale pipe environment variable.
 
@@ -37,7 +37,8 @@ Run `Developer: Reload Window` afterward. This removes only the unsupported rend
 
 ## Files
 
-- Notification bridge: `~/.codex/bin/codex-attention-notify.ps1`
+- Codex notification bridge: `~/.codex/bin/codex-attention-notify.ps1`
+- Claude Code notification bridge: `~/.claude/bin/claude-attention-notify.ps1` (wired via a `Stop` hook in `~/.claude/settings.json`)
 - Reapply/remove script: `~/.codex/bin/install-codex-attention-renderer.ps1`
 - Durable renderer source: `~/.codex/bin/codex-attention-renderer.js`
 - Durable renderer styles: `~/.codex/bin/codex-attention-renderer.css`
@@ -45,7 +46,7 @@ Run `Developer: Reload Window` afterward. This removes only the unsupported rend
 - Per-build pristine backups: `~/.codex/backups/vscode-renderer/<build>/workbench.html.original`
 - Per-build product backups: `~/.codex/backups/vscode-renderer/<build>/product.json.original`
 - Codex notify configuration: `~/.codex/config.toml`
-- VS Code proposed-API opt-in: `%APPDATA%/Code/argv.json`
+- VS Code proposed-API opt-in: `~/.vscode/argv.json` (older setups: `%APPDATA%/Code/argv.json`)
 
 ## Troubleshooting
 

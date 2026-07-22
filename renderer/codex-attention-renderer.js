@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.3.0";
+  const VERSION = "0.4.0";
   const MARKER_CLASS = "codex-attention-waiting";
 
   if (window.__codexAttentionRenderer?.version === VERSION) {
@@ -28,7 +28,7 @@
     }
 
     pane.classList.add(MARKER_CLASS);
-    pane.setAttribute("data-codex-attention", "Codex turn finished");
+    pane.setAttribute("data-codex-attention", "Agent turn finished");
   }
 
   function sync() {

@@ -1,7 +1,7 @@
 {
   "name": "codex-attention",
   "displayName": "Codex Attention",
-  "description": "Dramatic, terminal-aware completion alerts for Codex CLI in VS Code.",
+  "description": "Dramatic, terminal-aware completion alerts for Codex CLI and Claude Code in VS Code.",
   "version": "0.1.0",
   "publisher": "jordan",
   "private": true,
