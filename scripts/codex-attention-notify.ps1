@@ -6,7 +6,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $logPath = Join-Path $env:TEMP 'codex-attention-notify.log'
-$pipeRegistryPath = Join-Path $env:TEMP 'codex-attention-pipes'
+$pipeRegistryPath = Join-Path $env:TEMP 'agent-attention-pipes'
 $payload = if ($NotifyArguments.Count -gt 0) { $NotifyArguments[-1] } else { '{}' }
 $extensionAccepted = $false
 
@@ -120,8 +120,8 @@ try {
         }
     }
 
-    if ($env:CODEX_ATTENTION_PIPE -and -not $candidatePipes.Contains($env:CODEX_ATTENTION_PIPE)) {
-        $candidatePipes.Add($env:CODEX_ATTENTION_PIPE)
+    if ($env:AGENT_ATTENTION_PIPE -and -not $candidatePipes.Contains($env:AGENT_ATTENTION_PIPE)) {
+        $candidatePipes.Add($env:AGENT_ATTENTION_PIPE)
     }
 
     foreach ($candidatePipe in $candidatePipes) {

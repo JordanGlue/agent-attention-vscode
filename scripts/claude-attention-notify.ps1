@@ -8,7 +8,7 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $logPath = Join-Path $env:TEMP 'claude-attention-notify.log'
-$pipeRegistryPath = Join-Path $env:TEMP 'codex-attention-pipes'
+$pipeRegistryPath = Join-Path $env:TEMP 'agent-attention-pipes'
 $extensionAccepted = $false
 
 function Write-AttentionLog {
@@ -114,8 +114,8 @@ try {
         }
     }
 
-    if ($env:CODEX_ATTENTION_PIPE -and -not $candidatePipes.Contains($env:CODEX_ATTENTION_PIPE)) {
-        $candidatePipes.Add($env:CODEX_ATTENTION_PIPE)
+    if ($env:AGENT_ATTENTION_PIPE -and -not $candidatePipes.Contains($env:AGENT_ATTENTION_PIPE)) {
+        $candidatePipes.Add($env:AGENT_ATTENTION_PIPE)
     }
 
     foreach ($candidatePipe in $candidatePipes) {
