@@ -56,7 +56,7 @@ Edit files in this repository, not the deployed copies under `~/.codex`, `~/.vsc
 ## Editing workflow
 
 ```powershell
-cd C:\code\codex-attention-vscode
+cd C:\code\agent-attention-vscode
 & .\scripts\verify.ps1
 & .\scripts\sync-to-profile.ps1
 ```
@@ -70,7 +70,7 @@ After editing only the extension, **Developer: Restart Extension Host** is suffi
 Run:
 
 ```powershell
-& C:\code\codex-attention-vscode\scripts\sync-to-profile.ps1
+& C:\code\agent-attention-vscode\scripts\sync-to-profile.ps1
 ```
 
 The deployment script copies the canonical sources into the profile and invokes the workbench installer for the newest installed VS Code build. The installer creates pristine per-build backups before patching.
