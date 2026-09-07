@@ -50,6 +50,10 @@ Run `Developer: Reload Window` afterward. This removes only the unsupported rend
 
 ## Troubleshooting
 
+The extension checks the running workbench at startup. If an update removed the patch, it shows **Agent Attention terminal borders need repair** with an **Open repair guide** action. Reapply using the command above, then reload the window.
+
+From the source repository, `scripts/verify.ps1 -CheckInstalled` checks the actual workbench loader and installed renderer assets as well as the profile copies. A successful profile comparison alone does not mean the workbench patch survived an update.
+
 1. Confirm ordinary notifications still appear. If not, check the extension and notification bridge first.
 2. If notifications work but the pane border does not, run the reapply command above and fully restart VS Code.
 3. If the installer says its VS Code loader anchors changed, do not patch manually from memory. The new VS Code build changed its workbench structure and the installer needs updating.

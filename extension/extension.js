@@ -7,6 +7,7 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 const vscode = require('vscode');
+const { checkWorkbench } = require('./workbench-health');
 
 const BELL_PAIR_WINDOW_MS = 2500;
 const MAX_PIPE_MESSAGE_CHARS = 64 * 1024;
@@ -406,6 +407,20 @@ function registerPipe(pipeName) {
  * @param {import('vscode').ExtensionContext} context
  */
 function activate(context) {
+  const workbenchIssues = checkWorkbench(vscode.env.appRoot);
+  if (workbenchIssues.length) {
+    console.warn('Agent Attention workbench check:', workbenchIssues.join('; '));
+    void vscode.window.showWarningMessage(
+      'Agent Attention terminal borders need repair, usually after a VS Code update. Reapply the renderer, then reload this window.',
+      'Open repair guide'
+    ).then(action => {
+      if (action === 'Open repair guide') {
+        return vscode.commands.executeCommand('markdown.showPreview',
+          vscode.Uri.file(path.join(os.homedir(), '.agent-attention', 'MAINTENANCE.md')));
+      }
+    });
+  }
+
   statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 1000);
   statusItem.name = 'Agent Attention';
   statusItem.command = 'agentAttention.showUnread';

@@ -56,7 +56,7 @@ Edit files in this repository, not the deployed copies under `~/.agent-attention
 ## Editing workflow
 
 ```powershell
-cd C:\code\agent-attention-vscode
+cd C:\code\codex-attention-vscode
 & .\scripts\verify.ps1
 & .\scripts\sync-to-profile.ps1
 ```
@@ -70,7 +70,7 @@ After editing only the extension, **Developer: Restart Extension Host** is suffi
 Run:
 
 ```powershell
-& C:\code\agent-attention-vscode\scripts\sync-to-profile.ps1
+& C:\code\codex-attention-vscode\scripts\sync-to-profile.ps1
 ```
 
 The deployment script copies the canonical sources into the profile and invokes the workbench installer for the newest installed VS Code build. The installer creates pristine per-build backups before patching.
@@ -83,6 +83,8 @@ VS Code will report that its installation appears corrupt because its workbench 
 & .\scripts\verify.ps1 -CheckInstalled
 ```
 
-This parses all PowerShell scripts, checks both JavaScript files, validates the extension manifest, verifies the renderer/cache-buster version coupling, and optionally compares repository files with deployed profile copies.
+This parses all PowerShell scripts, checks JavaScript syntax, runs workbench-health regression tests, validates the extension manifest, and verifies the renderer/cache-buster version coupling. `-CheckInstalled` also compares deployed profile and workbench assets with the source and checks that the newest VS Code build actually loads the renderer. Use `-AppRoot <resources/app path>` to check a specific build.
+
+At startup, the extension checks the running VS Code build and shows a repair warning with a link to the maintenance guide when an update has removed the pane renderer.
 
 See [architecture](docs/ARCHITECTURE.md) for the event flow and [maintenance](docs/MAINTENANCE.md) for operational recovery notes.

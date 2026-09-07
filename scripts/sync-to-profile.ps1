@@ -15,7 +15,7 @@ $maintenanceTarget = Join-Path $agentHome 'MAINTENANCE.md'
 
 New-Item -ItemType Directory -Force -Path $extensionTarget, $agentHome, $codexBin, $claudeBin | Out-Null
 
-foreach ($name in 'extension.js', 'package.json', 'README.md') {
+foreach ($name in 'extension.js', 'workbench-health.js', 'package.json', 'README.md') {
     Copy-Item -LiteralPath (Join-Path $extensionSource $name) -Destination (Join-Path $extensionTarget $name) -Force
 }
 
@@ -38,6 +38,11 @@ $legacyPaths = @(
 )
 foreach ($legacyPath in $legacyPaths) {
     if (Test-Path -LiteralPath $legacyPath) {
+        $resolvedLegacyPath = (Resolve-Path -LiteralPath $legacyPath).Path
+        $profilePrefix = [IO.Path]::GetFullPath($HOME).TrimEnd('\') + '\'
+        if (-not $resolvedLegacyPath.StartsWith($profilePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Legacy deployment is outside the user profile: $resolvedLegacyPath"
+        }
         Remove-Item -LiteralPath $legacyPath -Recurse -Force
         Write-Host "Removed legacy deployment: $legacyPath"
     }
