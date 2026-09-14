@@ -5,8 +5,8 @@
 1. Codex invokes `codex-attention-notify.ps1` for a completed turn.
 2. The bridge walks its ancestor process IDs and contacts live extension pipes registered under `%TEMP%\agent-attention-pipes`.
 3. Each VS Code window attempts to resolve those process IDs to one of its terminals. Only the owning window accepts the event.
-4. The extension waits for the originating terminal's focus-conditioned BEL through the proposed `terminalDataWriteEvent` API.
-5. On BEL, the extension shows the VS Code alert/status indicator and launches the Windows notifier.
+4. The extension checks window focus and the active terminal directly and suppresses delivery when the originating terminal is active in the focused window.
+5. Otherwise, the extension shows the VS Code alert/status indicator and launches the Windows notifier immediately, without waiting for a bell or forwarding terminal output.
 6. The injected workbench renderer independently subscribes to each xterm `onBell` event and marks the containing pane.
 
 ## Completion flow (Claude Code)
@@ -36,9 +36,9 @@ The marker is the `agent-attention-waiting` class. The stylesheet supplies the a
 VS Code's public extension API cannot style one specific terminal pane. This project therefore patches:
 
 - `workbench.html` to load the renderer JavaScript and CSS.
-- `product.json` to allow `local.agent-attention` to use `terminalDataWriteEvent` without restarting a long-running VS Code main process.
+- Old `product.json` entries for the terminal-data proposal are removed during installation.
 
-`~/.vscode/argv.json` also enables that proposal for normal future application starts.
+The extension no longer declares or uses a proposed API. Legacy argv opt-ins are unnecessary.
 
 The renderer asset URLs include the renderer version as a query parameter. Increment the JavaScript `VERSION` and both installer URL query strings together whenever renderer behaviour changes; otherwise Chromium may reuse an older module from cache across window reloads.
 
@@ -46,7 +46,6 @@ The renderer asset URLs include the renderer version as a query parameter. Incre
 
 - VS Code updates replace patched application files.
 - DOM classes such as `.editor-instance`, `.terminal-wrapper`, and the exposed `wrapper.xterm` property are internal implementation details.
-- Proposed API names or enablement rules may change.
 - The Windows notifier is discovered under `%LOCALAPPDATA%\OpenAI\Codex\runtimes\cua_node` (newest runtime wins); a Codex update that relocates it entirely breaks the fallback notification.
 - The integrity warning is expected and does not by itself indicate a broken patch.
 

@@ -63,4 +63,4 @@ After changing the notification extension itself, run `Developer: Restart Extens
 
 This visual layer deliberately uses unsupported VS Code workbench injection because the public extension API cannot style one specific terminal split. It may require maintenance after VS Code updates.
 
-The installer also allowlists `local.agent-attention` for VS Code's proposed `terminalDataWriteEvent` in that build's `product.json`. This keeps terminal-aware delivery available after a window reload even when the long-running VS Code main process predates the `argv.json` startup flag.
+Renderer 0.6.0 discovers terminal wrappers once per second without a workbench-wide DOM observer. Existing pane bells and focus changes still act immediately. The extension no longer subscribes to terminal output, and installation removes its old product allowlist entry. Codex notifications now use the same direct focus check as Claude. Unresolved prompts are limited to one per terminal and eight per window; the waiting-terminal picker continues to include all unread terminals.

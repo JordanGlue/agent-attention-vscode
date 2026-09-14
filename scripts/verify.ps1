@@ -27,7 +27,7 @@ $rendererJs = Join-Path $repoRoot 'renderer\agent-attention-renderer.js'
 if ($LASTEXITCODE -ne 0) { throw 'extension.js syntax check failed.' }
 & node --check $rendererJs
 if ($LASTEXITCODE -ne 0) { throw 'renderer JavaScript syntax check failed.' }
-& node --test (Join-Path $repoRoot 'tests\workbench-health.test.js')
+& node --test (Get-ChildItem -LiteralPath (Join-Path $repoRoot 'tests') -Filter '*.test.js').FullName
 if ($LASTEXITCODE -ne 0) { throw 'Workbench health regression tests failed.' }
 
 foreach ($script in @(
@@ -44,8 +44,8 @@ $manifest = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'extension\packag
 if ($manifest.publisher -ne 'local' -or $manifest.name -ne 'agent-attention') {
     throw 'Unexpected extension identity in package.json.'
 }
-if (@($manifest.enabledApiProposals) -notcontains 'terminalDataWriteEvent') {
-    throw 'terminalDataWriteEvent is missing from enabledApiProposals.'
+if (@($manifest.enabledApiProposals) -contains 'terminalDataWriteEvent') {
+    throw 'Agent Attention must not enable terminal output forwarding.'
 }
 
 $rendererText = Get-Content -Raw -LiteralPath $rendererJs

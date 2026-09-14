@@ -12,4 +12,4 @@ When a notification bridge reports a completed turn, the extension:
 
 The bridges forward only event source, event type, working directory, turn ID, thread ID, timestamp, and ancestor process IDs. Prompt and response contents are not forwarded to the extension.
 
-Codex delivery waits for Codex's focus-conditioned terminal BEL through the proposed terminal-data API. Claude Code cannot emit a focus-conditioned BEL, so Claude events are delivered directly and the extension suppresses them itself when the originating terminal is focused; that path uses only stable VS Code APIs.
+Both Codex and Claude delivery check the originating terminal and window focus directly. Neither subscribes to terminal output. Pane borders independently respond to xterm bells.

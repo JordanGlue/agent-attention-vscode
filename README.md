@@ -18,7 +18,7 @@ The working setup supports a six-terminal editor-grid layout as well as ordinary
 Claude Code events arrive through a `Stop` hook rather than Codex's `notify` hook:
 
 - `scripts/claude-attention-notify.ps1` reads the hook payload from stdin, walks its ancestor process IDs, and reuses the same named-pipe protocol (`source: "claude"`).
-- Claude cannot emit Codex's focus-conditioned BEL, so the extension delivers Claude events directly and performs the focus check itself. This path needs no proposed API.
+- Both Codex and Claude completion hooks deliver directly, with a focus check in the extension. Neither requires terminal-output forwarding or a proposed API.
 - The pane border/badge relies on a terminal bell reaching the pane's xterm. On Windows, Claude Code spawns hooks into a detached invisible console, so the bridge's own BEL write is best-effort only. The reliable source is the CLI ringing its own bell — set `"preferredNotifChannel": "terminal_bell"` in `~/.claude.json`. The renderer ignores bells in focused panes, so the always-on bell still behaves focus-aware visually.
 
 Wire it up in `~/.claude/settings.json`. Use forward slashes and an absolute path: Claude Code may run hook commands through a POSIX shell, which strips single backslashes and does not expand `%VAR%`:

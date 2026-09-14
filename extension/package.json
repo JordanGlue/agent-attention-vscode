@@ -18,9 +18,6 @@
   "extensionKind": [
     "ui"
   ],
-  "enabledApiProposals": [
-    "terminalDataWriteEvent"
-  ],
   "contributes": {
     "commands": [
       {

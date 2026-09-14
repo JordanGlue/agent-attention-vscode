@@ -146,8 +146,8 @@ catch {
 
 try {
     if ($extensionAccepted) {
-        # The extension now owns delivery and suppresses it unless Codex emits
-        # its focus-conditioned terminal bell for this completed turn.
+        # The extension owns delivery and checks the originating terminal's
+        # focus directly, without forwarding terminal output.
     }
     elseif ($existingNotifier) {
         & $existingNotifier 'turn-ended' $payload | Out-Null

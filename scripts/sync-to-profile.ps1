@@ -48,24 +48,6 @@ foreach ($legacyPath in $legacyPaths) {
     }
 }
 
-# argv.json is JSONC (comments allowed), so match on text instead of parsing.
-# VS Code reads it from ~/.vscode/argv.json; older setups used %APPDATA%\Code.
-$argvCandidates = @(
-    (Join-Path $HOME '.vscode\argv.json'),
-    (Join-Path $env:APPDATA 'Code\argv.json')
-)
-$argvEnabled = $false
-foreach ($argvPath in $argvCandidates) {
-    if ((Test-Path -LiteralPath $argvPath) -and
-        (Get-Content -Raw -LiteralPath $argvPath).Contains('local.agent-attention')) {
-        $argvEnabled = $true
-        break
-    }
-}
-if (-not $argvEnabled) {
-    Write-Warning 'No argv.json enables proposed APIs for local.agent-attention.'
-}
-
 $configPath = Join-Path $HOME '.codex\config.toml'
 if (-not (Test-Path -LiteralPath $configPath) -or
     -not (Get-Content -Raw -LiteralPath $configPath).Contains('codex-attention-notify.ps1')) {

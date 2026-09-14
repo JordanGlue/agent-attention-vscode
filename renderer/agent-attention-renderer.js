@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "0.5.0";
+  const VERSION = "0.6.0";
   const MARKER_CLASS = "agent-attention-waiting";
 
   if (window.__agentAttentionRenderer?.version === VERSION) {
@@ -10,7 +10,6 @@
   window.__agentAttentionRenderer?.destroy?.();
 
   const subscriptions = new Map();
-  let animationFrame = 0;
 
   function paneForWrapper(wrapper) {
     return wrapper.closest(".terminal-split-pane, .editor-instance");
@@ -32,14 +31,13 @@
   }
 
   function sync() {
-    animationFrame = 0;
     const currentWrappers = new Set(
       document.querySelectorAll(".terminal-wrapper")
     );
 
     for (const [wrapper, subscription] of subscriptions) {
-      if (!currentWrappers.has(wrapper)) {
-        subscription.dispose();
+      if (!currentWrappers.has(wrapper) || wrapper.xterm !== subscription.xterm) {
+        subscription.disposable.dispose();
         subscriptions.delete(wrapper);
       }
     }
@@ -48,7 +46,10 @@
       if (!subscriptions.has(wrapper) && typeof wrapper.xterm?.onBell === "function") {
         subscriptions.set(
           wrapper,
-          wrapper.xterm.onBell(() => markPane(paneForWrapper(wrapper)))
+          {
+            xterm: wrapper.xterm,
+            disposable: wrapper.xterm.onBell(() => markPane(paneForWrapper(wrapper)))
+          }
         );
       }
     }
@@ -58,31 +59,19 @@
     }
   }
 
-  function scheduleSync() {
-    if (!animationFrame) animationFrame = requestAnimationFrame(sync);
-  }
-
   function handleFocus(event) {
     clearPane(event.target.closest?.(".terminal-split-pane, .editor-instance"));
-    scheduleSync();
   }
 
-  const observer = new MutationObserver(scheduleSync);
-  observer.observe(document.documentElement, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ["class"]
-  });
+  // Terminal output changes the DOM constantly. Discover wrappers at a fixed
+  // rate; bells and focus still update existing panes immediately.
   document.addEventListener("focusin", handleFocus, true);
   const reconciliationTimer = setInterval(sync, 1000);
 
   function destroy() {
-    observer.disconnect();
     document.removeEventListener("focusin", handleFocus, true);
     clearInterval(reconciliationTimer);
-    if (animationFrame) cancelAnimationFrame(animationFrame);
-    for (const subscription of subscriptions.values()) subscription.dispose();
+    for (const subscription of subscriptions.values()) subscription.disposable.dispose();
     subscriptions.clear();
     for (const pane of document.querySelectorAll(`.${MARKER_CLASS}`)) clearPane(pane);
     delete window.__agentAttentionRenderer;

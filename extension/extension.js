@@ -9,7 +9,6 @@ const path = require('path');
 const vscode = require('vscode');
 const { checkWorkbench } = require('./workbench-health');
 
-const BELL_PAIR_WINDOW_MS = 2500;
 const MAX_PIPE_MESSAGE_CHARS = 64 * 1024;
 const PIPE_SOCKET_TIMEOUT_MS = 5000;
 const PIPE_REGISTRY_DIR = path.join(os.tmpdir(), 'agent-attention-pipes');
@@ -21,12 +20,13 @@ const unread = new Map();
 let statusItem;
 /** @type {NodeJS.Timeout | undefined} */
 let pulseTimer;
-/** @type {Map<import('vscode').Terminal, Array<{message: any, timeout: NodeJS.Timeout}>>} */
-const pendingByTerminal = new Map();
+// Track unresolved prompts separately from unread alerts: focusing a terminal
+// clears unread state but does not dismiss VS Code's notification promise.
+const promptByTerminal = new WeakMap();
+const MAX_OPEN_PROMPTS = 8;
+let openPromptCount = 0;
 /** @type {WeakMap<import('vscode').Terminal, string>} */
 const alertIdByTerminal = new WeakMap();
-/** @type {import('vscode').Disposable | undefined} */
-let terminalDataSubscription;
 
 function countLabel() {
   return unread.size === 1 ? '1 READY' : `${unread.size} READY`;
@@ -123,12 +123,6 @@ function clearTerminal(terminal) {
       unread.delete(id);
     }
   }
-  const pending = pendingByTerminal.get(terminal) || [];
-  for (const item of pending) {
-    clearTimeout(item.timeout);
-  }
-  pendingByTerminal.delete(terminal);
-  stopTerminalDataSubscriptionIfIdle();
   renderStatus(true);
 }
 
@@ -202,7 +196,6 @@ async function deliverNotification(message, terminal) {
       alertIdByTerminal.set(terminal, id);
     }
   }
-  const alreadyUnread = unread.has(id);
   const cwd = message.cwd || undefined;
   const agent = messageAgent(message);
   const item = {
@@ -219,116 +212,51 @@ async function deliverNotification(message, terminal) {
   startPulse();
   launchWindowsNotifier(message);
 
-  // One unresolved VS Code notification is sufficient for a terminal that is
-  // already waiting. Replacing the unread item keeps its metadata current
-  // without allowing notification promises or status-tooltip entries to grow
-  // once per completed turn.
-  if (alreadyUnread) {
+  const existingPrompt = promptByTerminal.get(terminal);
+  if (existingPrompt) {
+    existingPrompt.item = item;
     return;
   }
+  if (openPromptCount >= MAX_OPEN_PROMPTS) return;
+  const prompt = { item };
+  promptByTerminal.set(terminal, prompt);
+  openPromptCount += 1;
+  try {
+    const action = await vscode.window.showWarningMessage(
+      `${item.agent} finished in ${item.terminalName} — ${item.project}.`,
+      'Jump to terminal',
+      'Dismiss'
+    );
 
-  const action = await vscode.window.showWarningMessage(
-    `${item.agent} finished in ${item.terminalName} — ${item.project}.`,
-    'Jump to terminal',
-    'Dismiss'
-  );
-
-  if (action === 'Jump to terminal') {
-    await jumpToAlert(item);
-  } else if (action === 'Dismiss') {
-    removeAlert(item.id);
-  }
-}
-
-function queueNotification(message, terminal) {
-  const entry = {
-    message,
-    timeout: setTimeout(() => {
-      const pending = pendingByTerminal.get(terminal) || [];
-      const remaining = pending.filter(candidate => candidate !== entry);
-      if (remaining.length > 0) {
-        pendingByTerminal.set(terminal, remaining);
-      } else {
-        pendingByTerminal.delete(terminal);
-      }
-      stopTerminalDataSubscriptionIfIdle();
-    }, BELL_PAIR_WINDOW_MS)
-  };
-  const pending = pendingByTerminal.get(terminal) || [];
-  pending.push(entry);
-  pendingByTerminal.set(terminal, pending);
-  ensureTerminalDataSubscription();
-}
-
-function handleTerminalData(event) {
-  if (!event.data.includes('\x07')) {
-    return;
-  }
-
-  const pending = pendingByTerminal.get(event.terminal) || [];
-  if (pending.length === 0) {
-    return;
-  }
-
-  pendingByTerminal.delete(event.terminal);
-  for (const item of pending) {
-    clearTimeout(item.timeout);
-    void deliverNotification(item.message, event.terminal);
-  }
-  stopTerminalDataSubscriptionIfIdle();
-}
-
-function ensureTerminalDataSubscription() {
-  if (!terminalDataSubscription) {
-    terminalDataSubscription = vscode.window.onDidWriteTerminalData(handleTerminalData);
-  }
-}
-
-function stopTerminalDataSubscriptionIfIdle() {
-  if (pendingByTerminal.size === 0 && terminalDataSubscription) {
-    terminalDataSubscription.dispose();
-    terminalDataSubscription = undefined;
-  }
-}
-
-async function acceptNotification(socket, message, supportsTerminalData) {
-  if (message.source === 'claude') {
-    const terminal = await resolveTerminal(message.ancestorPids);
-    if (!terminal) {
-      socket.end('fallback\n');
-      return;
+    if (action === 'Jump to terminal') {
+      await jumpToAlert(prompt.item);
+    } else if (action === 'Dismiss') {
+      removeAlert(prompt.item.id);
     }
-
-    socket.end('accepted\n');
-    // Claude Code cannot emit Codex's focus-conditioned BEL, so the focus
-    // check happens here instead: a focused originating terminal is being
-    // watched and needs no alert. This path never touches the proposed
-    // terminal-data API.
-    if (vscode.window.state.focused && vscode.window.activeTerminal === terminal) {
-      return;
-    }
-    void deliverNotification(message, terminal);
-    return;
+  } finally {
+    promptByTerminal.delete(terminal);
+    openPromptCount -= 1;
   }
+}
 
-  if (!supportsTerminalData) {
-    socket.end('fallback\n');
-    return;
-  }
-
+async function acceptNotification(socket, message) {
   const terminal = await resolveTerminal(message.ancestorPids);
+  if (socket.destroyed) return;
   if (!terminal) {
     socket.end('fallback\n');
     return;
   }
 
-  queueNotification(message, terminal);
-  // The notify hook waits for this response. Queueing first ensures terminal
-  // data forwarding is armed before Codex can continue and emit its BEL.
   socket.end('accepted\n');
+  // Hook payloads already identify the terminal. Do not subscribe to the
+  // output of every terminal just to find a bell (which also replays data).
+  if (vscode.window.state.focused && vscode.window.activeTerminal === terminal) return;
+  void deliverNotification(message, terminal).catch(error => {
+    console.error('Agent Attention could not show a notification:', error);
+  });
 }
 
-function createPipeServer(pipeName, supportsTerminalData) {
+function createPipeServer(pipeName) {
   const pipePath = `\\\\.\\pipe\\${pipeName}`;
   const server = net.createServer(socket => {
     socket.setEncoding('utf8');
@@ -356,7 +284,7 @@ function createPipeServer(pipeName, supportsTerminalData) {
       buffer = '';
       try {
         const message = JSON.parse(line);
-        void acceptNotification(socket, message, supportsTerminalData).catch(error => {
+        void acceptNotification(socket, message).catch(error => {
           console.error('Agent Attention rejected a notification:', error);
           if (!socket.destroyed) {
             socket.end('fallback\n');
@@ -426,13 +354,8 @@ function activate(context) {
   statusItem.command = 'agentAttention.showUnread';
   context.subscriptions.push(statusItem);
 
-  const supportsTerminalData = typeof vscode.window.onDidWriteTerminalData === 'function';
-  if (!supportsTerminalData) {
-    console.warn('Agent Attention terminal-data API is unavailable; notifications will fail open.');
-  }
-
   const pipeName = `agent-attention-${crypto.randomUUID()}`;
-  const server = createPipeServer(pipeName, supportsTerminalData);
+  const server = createPipeServer(pipeName);
   context.subscriptions.push(new vscode.Disposable(() => server.close()));
   context.subscriptions.push(registerPipe(pipeName));
 
@@ -461,14 +384,7 @@ function deactivate() {
     clearInterval(pulseTimer);
     pulseTimer = undefined;
   }
-  for (const pending of pendingByTerminal.values()) {
-    for (const item of pending) {
-      clearTimeout(item.timeout);
-    }
-  }
-  pendingByTerminal.clear();
-  terminalDataSubscription?.dispose();
-  terminalDataSubscription = undefined;
+  unread.clear();
 }
 
 module.exports = { activate, deactivate };

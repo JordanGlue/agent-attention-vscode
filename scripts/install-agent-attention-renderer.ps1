@@ -36,8 +36,8 @@ $legacyCssTarget = Join-Path $workbenchDir 'codex-attention-renderer.css'
 $legacyJsTarget = Join-Path $workbenchDir 'codex-attention-renderer.js'
 $cssSource = Join-Path $PSScriptRoot 'agent-attention-renderer.css'
 $jsSource = Join-Path $PSScriptRoot 'agent-attention-renderer.js'
-$cssTag = "`t`t<link rel=`"stylesheet`" href=`"./agent-attention-renderer.css?v=0.5.0`">"
-$jsTag = "`t<script src=`"./agent-attention-renderer.js?v=0.5.0`" type=`"module`"></script>"
+$cssTag = "`t`t<link rel=`"stylesheet`" href=`"./agent-attention-renderer.css?v=0.6.0`">"
+$jsTag = "`t<script src=`"./agent-attention-renderer.js?v=0.6.0`" type=`"module`"></script>"
 $html = Get-Content -Raw -LiteralPath $htmlPath
 
 function Remove-AttentionTags {
@@ -120,14 +120,7 @@ if ($updated -ne $html) {
     [IO.File]::WriteAllText($htmlPath, $updated, [Text.UTF8Encoding]::new($false))
 }
 
-$productNewline = if ($product.Contains("`r`n")) { "`r`n" } else { "`n" }
 $productCleaned = Remove-AttentionProposalEntries -Product $product
-if (-not $productCleaned.Contains('"local.agent-attention"')) {
-    $proposalAnchor = "`t`"extensionEnabledApiProposals`": {"
-    if (-not $productCleaned.Contains($proposalAnchor)) { throw 'VS Code proposed-API allowlist anchor changed.' }
-    $proposalEntry = "`t`t`"local.agent-attention`": [$productNewline`t`t`t`"terminalDataWriteEvent`"$productNewline`t`t],"
-    $productCleaned = $productCleaned.Replace($proposalAnchor, "$proposalAnchor$productNewline$proposalEntry")
-}
 if ($productCleaned -ne $product) {
     [IO.File]::WriteAllText($productPath, $productCleaned, [Text.UTF8Encoding]::new($false))
 }
