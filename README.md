@@ -88,3 +88,11 @@ This parses all PowerShell scripts, checks JavaScript syntax, runs workbench-hea
 At startup, the extension checks the running VS Code build and shows a repair warning with a link to the maintenance guide when an update has removed the pane renderer.
 
 See [architecture](docs/ARCHITECTURE.md) for the event flow and [maintenance](docs/MAINTENANCE.md) for operational recovery notes.
+
+## VS Code memory crashes
+
+The September 2026 investigation found an upstream main-process terminal-output
+buffer leak in the installed VS Code 1.108.0 build. See the
+[diagnosis, tested local repair, and rollback instructions](docs/VSCODE-MEMORY-REPAIR.md).
+This repair is separate from the Agent Attention extension and requires a full
+VS Code restart.
