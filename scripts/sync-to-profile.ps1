@@ -15,7 +15,7 @@ $maintenanceTarget = Join-Path $agentHome 'MAINTENANCE.md'
 
 New-Item -ItemType Directory -Force -Path $extensionTarget, $agentHome, $codexBin, $claudeBin | Out-Null
 
-foreach ($name in 'extension.js', 'workbench-health.js', 'package.json', 'README.md') {
+foreach ($name in 'extension.js', 'sessions.js', 'workbench-health.js', 'package.json', 'README.md') {
     Copy-Item -LiteralPath (Join-Path $extensionSource $name) -Destination (Join-Path $extensionTarget $name) -Force
 }
 
@@ -26,6 +26,7 @@ foreach ($name in 'agent-attention-renderer.js', 'agent-attention-renderer.css')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'install-agent-attention-renderer.ps1') -Destination (Join-Path $agentHome 'install-agent-attention-renderer.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'codex-attention-notify.ps1') -Destination (Join-Path $codexBin 'codex-attention-notify.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'claude-attention-notify.ps1') -Destination (Join-Path $claudeBin 'claude-attention-notify.ps1') -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'claude-session-registry.ps1') -Destination (Join-Path $claudeBin 'claude-session-registry.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'docs\MAINTENANCE.md') -Destination $maintenanceTarget -Force
 
 # Remove artifacts deployed under the project's pre-rename identity.
@@ -58,6 +59,10 @@ $claudeSettingsPath = Join-Path $HOME '.claude\settings.json'
 if (-not (Test-Path -LiteralPath $claudeSettingsPath) -or
     -not (Get-Content -Raw -LiteralPath $claudeSettingsPath).Contains('claude-attention-notify.ps1')) {
     Write-Warning 'Claude settings.json does not wire a Stop hook to claude-attention-notify.ps1.'
+}
+if (-not (Test-Path -LiteralPath $claudeSettingsPath) -or
+    -not (Get-Content -Raw -LiteralPath $claudeSettingsPath).Contains('claude-session-registry.ps1')) {
+    Write-Warning 'Claude settings.json does not wire SessionStart/Stop/SessionEnd hooks to claude-session-registry.ps1; session restore will stay empty.'
 }
 
 if (-not $SkipWorkbenchPatch) {

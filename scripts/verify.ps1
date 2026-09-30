@@ -27,12 +27,15 @@ $rendererJs = Join-Path $repoRoot 'renderer\agent-attention-renderer.js'
 if ($LASTEXITCODE -ne 0) { throw 'extension.js syntax check failed.' }
 & node --check $rendererJs
 if ($LASTEXITCODE -ne 0) { throw 'renderer JavaScript syntax check failed.' }
+& node --check (Join-Path $repoRoot 'extension\sessions.js')
+if ($LASTEXITCODE -ne 0) { throw 'sessions.js syntax check failed.' }
 & node --test (Get-ChildItem -LiteralPath (Join-Path $repoRoot 'tests') -Filter '*.test.js').FullName
 if ($LASTEXITCODE -ne 0) { throw 'Workbench health regression tests failed.' }
 
 foreach ($script in @(
     (Join-Path $PSScriptRoot 'codex-attention-notify.ps1'),
     (Join-Path $PSScriptRoot 'claude-attention-notify.ps1'),
+    (Join-Path $PSScriptRoot 'claude-session-registry.ps1'),
     (Join-Path $PSScriptRoot 'install-agent-attention-renderer.ps1'),
     (Join-Path $PSScriptRoot 'sync-to-profile.ps1'),
     $PSCommandPath
@@ -68,12 +71,14 @@ if ($CheckInstalled) {
     $agentHome = Join-Path $HOME '.agent-attention'
     Assert-EqualFile $extensionJs (Join-Path $extensionTarget 'extension.js')
     Assert-EqualFile (Join-Path $repoRoot 'extension\workbench-health.js') (Join-Path $extensionTarget 'workbench-health.js')
+    Assert-EqualFile (Join-Path $repoRoot 'extension\sessions.js') (Join-Path $extensionTarget 'sessions.js')
     Assert-EqualFile (Join-Path $repoRoot 'extension\package.json') (Join-Path $extensionTarget 'package.json')
     Assert-EqualFile $rendererJs (Join-Path $agentHome 'agent-attention-renderer.js')
     Assert-EqualFile (Join-Path $repoRoot 'renderer\agent-attention-renderer.css') (Join-Path $agentHome 'agent-attention-renderer.css')
     Assert-EqualFile (Join-Path $PSScriptRoot 'install-agent-attention-renderer.ps1') (Join-Path $agentHome 'install-agent-attention-renderer.ps1')
     Assert-EqualFile (Join-Path $PSScriptRoot 'codex-attention-notify.ps1') (Join-Path $HOME '.codex\bin\codex-attention-notify.ps1')
     Assert-EqualFile (Join-Path $PSScriptRoot 'claude-attention-notify.ps1') (Join-Path $HOME '.claude\bin\claude-attention-notify.ps1')
+    Assert-EqualFile (Join-Path $PSScriptRoot 'claude-session-registry.ps1') (Join-Path $HOME '.claude\bin\claude-session-registry.ps1')
 
     if (-not $AppRoot) {
         $codeRoot = Join-Path $env:LOCALAPPDATA 'Programs\Microsoft VS Code'
