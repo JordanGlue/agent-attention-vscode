@@ -8,10 +8,12 @@ const os = require('os');
 const path = require('path');
 const vscode = require('vscode');
 const { checkWorkbench } = require('./workbench-health');
+const sessions = require('./sessions');
 
 const MAX_PIPE_MESSAGE_CHARS = 64 * 1024;
 const PIPE_SOCKET_TIMEOUT_MS = 5000;
 const PIPE_REGISTRY_DIR = path.join(os.tmpdir(), 'agent-attention-pipes');
+const STARTUP_RESTORE_DELAY_MS = 3000;
 
 /** @type {Map<string, {id: string, terminal?: import('vscode').Terminal, terminalName: string, cwd?: string, project: string, agent: string, createdAt: Date}>} */
 const unread = new Map();
@@ -331,6 +333,128 @@ function registerPipe(pipeName) {
   }
 }
 
+function sessionSettings() {
+  const config = vscode.workspace.getConfiguration('agentAttention.sessions');
+  return {
+    restoreOnStartup: config.get('restoreOnStartup', true),
+    parkAfterDays: config.get('parkAfterDays', 5)
+  };
+}
+
+function loadSessionGroups() {
+  return sessions.classifySessions(sessions.readSessions(), {
+    parkAfterDays: sessionSettings().parkAfterDays
+  });
+}
+
+function openSessionTerminal(session, viewColumn) {
+  const terminal = vscode.window.createTerminal({
+    name: `claude: ${sessions.sessionLabel(session)}`.slice(0, 60),
+    cwd: session.cwd || undefined,
+    location: { viewColumn, preserveFocus: true }
+  });
+  terminal.sendText(sessions.resumeCommand(session), true);
+  return terminal;
+}
+
+function gridShape(count) {
+  const columns = Math.max(1, Math.min(3, Math.ceil(count / 2)));
+  return { columns, rows: Math.max(1, Math.ceil(count / columns)) };
+}
+
+async function arrangeGridIfEmpty(count) {
+  // Only lay out a grid in a window with nothing open; never reshuffle
+  // editors or revived terminals the user already has.
+  const hasTabs = vscode.window.tabGroups.all.some(group => group.tabs.length > 0);
+  if (hasTabs || count < 2) return;
+  const { columns, rows } = gridShape(count);
+  const column = { groups: Array.from({ length: rows }, () => ({})) };
+  await vscode.commands.executeCommand('vscode.setEditorLayout', {
+    orientation: 0,
+    groups: Array.from({ length: columns }, () => column)
+  });
+}
+
+async function restoreSessions(list) {
+  await arrangeGridIfEmpty(list.length);
+  const { rows } = gridShape(list.length);
+  list.forEach((session, index) => {
+    // Grid order is column-major: fill each column top to bottom.
+    const column = Math.floor(index / rows);
+    const row = index % rows;
+    openSessionTerminal(session, Math.min(column * rows + row + 1, vscode.ViewColumn.Nine));
+  });
+}
+
+async function restoreOnStartup() {
+  if (!sessionSettings().restoreOnStartup) return;
+  // Let VS Code revive persisted terminals and editors first, so the grid
+  // check sees the real window state.
+  await new Promise(resolve => setTimeout(resolve, STARTUP_RESTORE_DELAY_MS));
+  const groups = loadSessionGroups();
+  if (groups.restore.length === 0 || !sessions.claimRestore()) return;
+  await restoreSessions(groups.restore);
+  const parked = groups.parked.length ? ` · ${groups.parked.length} parked` : '';
+  const action = await vscode.window.showInformationMessage(
+    `Restored ${groups.restore.length} Claude session${groups.restore.length === 1 ? '' : 's'}${parked}.`,
+    'Show sessions'
+  );
+  if (action === 'Show sessions') {
+    await showSessions();
+  }
+}
+
+async function showSessions() {
+  const groups = loadSessionGroups();
+  const item = (session, icon, state) => ({
+    label: `${icon} ${sessions.sessionLabel(session)}`,
+    description: `${state} · ${sessions.relativeAge(session.updatedAt)}`,
+    detail: sessions.lastLine(session.lastMessage),
+    session,
+    state
+  });
+  const separator = label => ({ label, kind: vscode.QuickPickItemKind.Separator });
+  const choices = [];
+  const add = (label, list, icon, state) => {
+    if (list.length === 0) return;
+    choices.push(separator(label), ...list.map(session => item(session, icon, state)));
+  };
+  add('Running', groups.live, '$(debug-start)', 'running');
+  add('Not running', groups.restore, '$(debug-pause)', 'not running');
+  add(`Parked (idle > ${sessionSettings().parkAfterDays} days)`, groups.parked, '$(archive)', 'parked');
+
+  if (choices.length === 0) {
+    vscode.window.setStatusBarMessage('$(check) No open Claude sessions.', 2500);
+    return;
+  }
+  const choice = await vscode.window.showQuickPick(choices, {
+    title: 'Claude sessions',
+    placeHolder: 'Pick a session to jump to or resume',
+    matchOnDescription: true,
+    matchOnDetail: true
+  });
+  if (!choice || !choice.session) return;
+
+  if (choice.state === 'running') {
+    const terminal = await resolveTerminal(choice.session.ancestorPids);
+    if (terminal) {
+      terminal.show(false);
+    } else {
+      vscode.window.showInformationMessage('That session is running outside this window.');
+    }
+    return;
+  }
+  const action = await vscode.window.showQuickPick(['Resume', 'Mark finished'], {
+    title: sessions.sessionLabel(choice.session)
+  });
+  if (action === 'Resume') {
+    openSessionTerminal(choice.session, vscode.ViewColumn.Beside).show(false);
+  } else if (action === 'Mark finished') {
+    sessions.markClosed(choice.session);
+    vscode.window.setStatusBarMessage('$(check) Session marked finished.', 2500);
+  }
+}
+
 /**
  * @param {import('vscode').ExtensionContext} context
  */
@@ -370,6 +494,15 @@ function activate(context) {
       renderStatus(true);
       vscode.window.setStatusBarMessage('$(check) Cleared all agent alerts.', 2500);
     }),
+    vscode.commands.registerCommand('agentAttention.showSessions', showSessions),
+    vscode.commands.registerCommand('agentAttention.restoreSessions', async () => {
+      const { restore } = loadSessionGroups();
+      if (restore.length === 0) {
+        vscode.window.setStatusBarMessage('$(check) No Claude sessions to restore.', 2500);
+        return;
+      }
+      await restoreSessions(restore);
+    }),
     vscode.window.onDidChangeActiveTerminal(terminal => {
       if (terminal) {
         clearTerminal(terminal);
@@ -377,6 +510,10 @@ function activate(context) {
     }),
     vscode.window.onDidCloseTerminal(clearTerminal)
   );
+
+  void restoreOnStartup().catch(error => {
+    console.error('Agent Attention could not restore Claude sessions:', error);
+  });
 }
 
 function deactivate() {

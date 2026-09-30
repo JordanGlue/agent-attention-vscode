@@ -27,7 +27,31 @@
       {
         "command": "agentAttention.clearAll",
         "title": "Agent Attention: Clear All Alerts"
+      },
+      {
+        "command": "agentAttention.showSessions",
+        "title": "Agent Attention: Show Claude Sessions"
+      },
+      {
+        "command": "agentAttention.restoreSessions",
+        "title": "Agent Attention: Restore Claude Sessions"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Agent Attention",
+      "properties": {
+        "agentAttention.sessions.restoreOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reopen unfinished Claude Code sessions (not ended with /exit) in new terminals when VS Code starts."
+        },
+        "agentAttention.sessions.parkAfterDays": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "description": "Open sessions idle longer than this are listed as parked instead of being restored."
+        }
+      }
+    }
   }
 }

@@ -17,7 +17,8 @@ function extension() {
   });
   const context = vm.createContext({
     require: name => name === 'vscode' ? { window } :
-      name === './workbench-health' ? { checkWorkbench: () => [] } : require(name),
+      name === './workbench-health' ? { checkWorkbench: () => [] } :
+      name === './sessions' ? require('../extension/sessions') : require(name),
     module: { exports: {} }, console, process,
     setInterval: () => 1, clearInterval() {}
   });
