@@ -9,6 +9,7 @@ const os = require('os');
 const path = require('path');
 
 const REGISTRY_DIR = path.join(os.homedir(), '.agent-attention', 'sessions');
+const CLAUDE_PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
 const RESTORE_LOCK = path.join(os.homedir(), '.agent-attention', 'restore.lock');
 const RESTORE_LOCK_MS = 2 * 60 * 1000;
 const SESSION_ID = /^[A-Za-z0-9-]+$/;
@@ -79,6 +80,42 @@ function classifySessions(sessions, options = {}) {
   return groups;
 }
 
+// Claude Code names a project folder after its launch directory with every
+// non-alphanumeric character replaced by '-' (C:\code -> C--code).
+function projectFolderName(dir) {
+  return dir.replace(/[^A-Za-z0-9]/g, '-');
+}
+
+/**
+ * The directory the session was launched from. The recorded cwd follows the
+ * agent's `cd`s, and resuming from a subdirectory switches the session to a
+ * different project (its memory and settings), so walk up from the recorded
+ * cwd to the directory that owns the transcript.
+ */
+function launchCwd(session, projectsDir = CLAUDE_PROJECTS_DIR) {
+  if (!session.cwd) return undefined;
+  let owners;
+  try {
+    owners = fs.readdirSync(projectsDir)
+      .map(folder => {
+        try {
+          return { folder, mtimeMs: fs.statSync(path.join(projectsDir, folder, `${session.sessionId}.jsonl`)).mtimeMs };
+        } catch {
+          return undefined;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+  } catch {
+    return session.cwd;
+  }
+  if (owners.length === 0) return session.cwd;
+  for (let dir = session.cwd; ; dir = path.dirname(dir)) {
+    if (projectFolderName(dir) === owners[0].folder) return dir;
+    if (path.dirname(dir) === dir) return session.cwd;
+  }
+}
+
 function resumeCommand(session) {
   if (!SESSION_ID.test(session.sessionId || '')) {
     throw new Error(`Invalid session id: ${session.sessionId}`);
@@ -143,6 +180,7 @@ module.exports = {
   claimRestore,
   classifySessions,
   lastLine,
+  launchCwd,
   markClosed,
   readSessions,
   relativeAge,

@@ -74,6 +74,23 @@ test('reads registry files, skipping headless and malformed records', () => {
   }
 });
 
+test('resumes from the launch directory, not the last cd', () => {
+  const projects = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-attention-projects-'));
+  try {
+    const owner = path.join(projects, 'C--code');
+    fs.mkdirSync(owner);
+    fs.writeFileSync(path.join(owner, 'aaaa-1111.jsonl'), '');
+    fs.mkdirSync(path.join(projects, 'C--code-repo'));
+
+    const drifted = session({ cwd: 'C:\\code\\repo\\src' });
+    assert.equal(sessions.launchCwd(drifted, projects), 'C:\\code');
+    assert.equal(sessions.launchCwd(session({ sessionId: 'missing', cwd: 'C:\\x' }), projects), 'C:\\x');
+    assert.equal(sessions.launchCwd(session({ cwd: 'D:\\elsewhere' }), projects), 'D:\\elsewhere');
+  } finally {
+    fs.rmSync(projects, { recursive: true, force: true });
+  }
+});
+
 test('restore lock lets only one window restore at a time', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-attention-lock-'));
   const lock = path.join(dir, 'restore.lock');

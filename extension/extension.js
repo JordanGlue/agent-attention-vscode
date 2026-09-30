@@ -350,7 +350,7 @@ function loadSessionGroups() {
 function openSessionTerminal(session, viewColumn) {
   const terminal = vscode.window.createTerminal({
     name: `claude: ${sessions.sessionLabel(session)}`.slice(0, 60),
-    cwd: session.cwd || undefined,
+    cwd: sessions.launchCwd(session),
     location: { viewColumn, preserveFocus: true }
   });
   terminal.sendText(sessions.resumeCommand(session), true);

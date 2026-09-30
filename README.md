@@ -45,7 +45,7 @@ Wire it up in `~/.claude/settings.json`. Use forward slashes and an absolute pat
 `scripts/claude-session-registry.ps1` keeps one JSON record per interactive Claude Code session in `~/.agent-attention/sessions/`: session id, cwd, title, the most-mentioned `TRYB-nnnnn` card, permission mode, the owning `claude.exe` PID and the last assistant message. Headless (`-p`) runs are ignored.
 
 - A session is **finished** only when it ends with `/exit` (or `/clear`, `/logout`). A reboot, crash or killed terminal leaves it open.
-- On startup the extension reopens every open session whose `claude.exe` is gone (`claude --resume <id>`, reapplying `auto`/`acceptEdits`/`plan` mode). In an empty window it lays them out in a grid. Sessions idle longer than `agentAttention.sessions.parkAfterDays` (default 5) are listed as parked instead.
+- On startup the extension reopens every open session whose `claude.exe` is gone (`claude --resume <id>` from the directory that owns its transcript, not the last `cd`, reapplying `auto`/`acceptEdits`/`plan` mode). In an empty window it lays them out in a grid. Sessions idle longer than `agentAttention.sessions.parkAfterDays` (default 5) are listed as parked instead.
 - On resume, a session without an explicit name gets its title prefixed with its card via the SessionStart `sessionTitle` output.
 - **Agent Attention: Show Claude Sessions** lists running, not-running and parked sessions with their last message; pick one to jump to, resume or mark finished. Turn off auto-restore with `agentAttention.sessions.restoreOnStartup`.
 
